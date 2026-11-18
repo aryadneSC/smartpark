@@ -1,0 +1,173 @@
+SMARTPARK IOT - LEIA PRIMEIRO (GUIA DA EQUIPE)
+===============================================
+Atualizado em 18/11/2026. Este guia explica onde esta cada coisa, como trabalhar juntos
+e o que ainda falta. NENHUM segredo esta neste arquivo nem no repositorio.
+
+
+1) ONDE ESTA CADA COISA
+-----------------------
+- Codigo (GitHub, privado):  https://github.com/aryadneSC/smartpark
+- Site publicado (Vercel):   https://smartpark-blue-five.vercel.app
+- Banco de dados:            Firebase (Firestore), um so para todo mundo
+- Simulacao do dispositivo:  Wokwi (projeto ESP32)
+
+O site no Vercel e o endereco FIXO da equipe. Ele serve para o Wokwi, o Mercado Pago e o
+Telegram. Nao precisamos mais gerar links temporarios com o cloudflared.
+Para o dia a dia, cada pessoa pode rodar o site no proprio computador (secao 3).
+
+
+2) COMO O CODIGO CHEGA NO SITE (leia com atencao)
+-------------------------------------------------
+O Vercel esta ligado ao GitHub da Aryadne (dona do projeto no Vercel, plano gratuito).
+No plano gratuito so a dona tem conta no Vercel, entao:
+
+- Ninguem mexe direto na branch "main".
+- Cada pessoa trabalha em uma BRANCH propria e abre um PULL REQUEST no GitHub.
+- A Aryadne revisa e faz o merge (de preferencia "Create a merge commit").
+- Depois do merge o Vercel costuma publicar sozinho (leva alguns minutos).
+- Se nao publicar, a Aryadne roda no computador dela:
+      git pull
+      npx vercel --prod
+- Mudou uma VARIAVEL de configuracao? So a Aryadne tem acesso ao painel do Vercel:
+  ela cadastra e faz "Redeploy". Sem o Redeploy a variavel nova nao vale.
+
+Para trabalhar em uma tarefa:
+      git pull
+      git checkout -b nome-da-tarefa
+      (faca as mudancas)
+      git add arquivo1 arquivo2          (evite "git add ." sem conferir; veja a secao 5)
+      git commit -m "o que voce fez"
+      git push -u origin nome-da-tarefa
+  Depois abra o Pull Request no site do GitHub.
+
+Se o push for recusado dizendo "private email address" (GH007):
+  1. Abra https://github.com/settings/emails e copie o e-mail terminado em @users.noreply.github.com
+  2. git config --global user.email "ESSE-EMAIL"
+  3. git commit --amend --reset-author --no-edit
+  4. git push
+
+
+3) COMO RODAR NO SEU COMPUTADOR
+-------------------------------
+    git clone https://github.com/aryadneSC/smartpark.git
+    cd smartpark
+    python3 -m venv .venv
+    source .venv/bin/activate              (Windows: .venv\Scripts\activate)
+    pip install -r requirements.txt
+    cp .env.example .env                   (depois preencha o .env - secao 4)
+    python -m scripts.check_firebase       (deve responder OK)
+    python app.py                          (abre em http://127.0.0.1:5000)
+    python3 -m unittest discover -s tests -v      (testes)
+
+- Todo terminal novo precisa de:  source .venv/bin/activate
+- Mudou o .env? Pare o servidor (Ctrl+C) e rode python app.py de novo.
+- Dados de teste (so uma vez, so uma pessoa, com o servidor parado): python scripts/seed.py
+- Permissao de operador (painel): veja docs/GUIA_EQUIPE.md; depois saia e entre de novo.
+
+
+4) SEGREDOS: O QUE CADA PESSOA PRECISA (nunca vai no Git, no zip nem no chat)
+-----------------------------------------------------------------------------
+Cada pessoa cria o PROPRIO arquivo .env a partir do .env.example. Valores pedidos:
+- Chave de conta de servico do Firebase (arquivo .json): peca a Aryadne por um canal seguro
+  (nao por e-mail, nao no grupo). Guarde FORA da pasta do projeto, ex.: ~/.smartpark/firebase-key.json
+  e aponte GOOGLE_APPLICATION_CREDENTIALS para ela.
+- FIREBASE_PROJECT_ID, FIREBASE_WEB_API_KEY, DEVICE_SHARED_SECRET: a Aryadne informa.
+- No computador, APP_BASE_URL pode ficar com o endereco do Vercel.
+
+Variaveis do Vercel (so a Aryadne cadastra; aqui so os NOMES):
+  SMARTPARK_MODE, FIREBASE_PROJECT_ID, FIREBASE_WEB_API_KEY, FIREBASE_SERVICE_ACCOUNT_JSON,
+  DEVICE_ID, DEVICE_SHARED_SECRET, APP_TIMEZONE, APP_BASE_URL, FRONTEND_ORIGIN
+  e, quando existirem: MERCADOPAGO_ACCESS_TOKEN, MERCADOPAGO_WEBHOOK_SECRET,
+  TELEGRAM_BOT_TOKEN, TELEGRAM_BOT_USERNAME, TELEGRAM_WEBHOOK_SECRET.
+  Quem tiver um token novo (Mercado Pago, Telegram) entrega a Aryadne por canal seguro.
+
+
+5) REGRAS DE SEGURANCA DA EQUIPE
+--------------------------------
+- NUNCA suba para o GitHub: .env, firmware/config.h, chave do Firebase (.json), tokens.
+  (O .gitignore ja protege, mas confira antes de cada commit:  git status)
+- Antes do commit, confira a lista:  git diff --cached --name-only
+- Se um segredo for para o GitHub por engano: avise a Aryadne na hora. Nao adianta so apagar
+  o arquivo; a chave/token precisa ser REVOGADO e trocado.
+- Nao mostre .env, config.h, chave ou link do Wokwi com segredo em tela compartilhada.
+- Troque o DEVICE_SHARED_SECRET (Vercel e config.h) se o projeto do Wokwi for compartilhado.
+
+
+6) O QUE JA ESTA PRONTO
+-----------------------
+- Backend (Flask), site, login, reserva com transacao, checkout Mercado Pago, webhooks,
+  Telegram, rotas do ESP32 e painel do operador (escritos; veja o que falta validar abaixo).
+- Site publicado no Vercel funcionando.
+- Firmware do ESP32 (firmware/sketch.ino) com certificado verificado (nao use setInsecure).
+- 17 testes automatizados passando.
+- Documentacao: docs/GUIA_EQUIPE.md, docs/RELATORIO_TESTES.md.
+
+
+7) O QUE FALTA (marque quem faz cada item)
+------------------------------------------
+[ ] A. Wokwi: apontar para o Vercel e resolver o FALHA_REDE                      Resp.: ________
+      - config.h do Wokwi (copie de firmware/config.example.h):
+            API_BASE = "https://smartpark-blue-five.vercel.app"   (sem barra no final)
+            DEVICE_ID = "esp32-centro-01"
+            DEVICE_SECRET = o mesmo DEVICE_SHARED_SECRET
+            ROOT_CA = certificado RAIZ do dominio vercel.app (navegador: cadeado > certificado >
+            exportar o do topo da hierarquia, formato PEM). Como o endereco agora e fixo, so uma vez.
+      - Se aparecer "connection refused": rode firmware/diagnostico-wifi.ino.txt num projeto novo
+        do Wokwi e depois um teste de conexao com o endereco do Vercel e com example.com.
+      - Botoes: GPIO 27 = ENTRADA, GPIO 14 = SAIDA, os dois juntos = MANUTENCAO.
+[ ] B. Mercado Pago (credenciais de TESTE)                                       Resp.: ________
+      - Entregar token e segredo de webhook de teste a Aryadne (variaveis do Vercel).
+      - Cadastrar o webhook no painel do Mercado Pago:
+            https://smartpark-blue-five.vercel.app/webhooks/mercadopago
+      - Testar: aprovado, rejeitado, pendente, webhook repetido, pagamento depois da reserva expirar (T04 a T06).
+[ ] C. Telegram                                                                  Resp.: ________
+      - Bot novo no BotFather (token novo) e entregar a Aryadne (variaveis do Vercel).
+      - Registrar o webhook do bot (setWebhook da Telegram Bot API) com a URL
+            https://smartpark-blue-five.vercel.app/webhooks/telegram
+        e o mesmo segredo (secret_token = TELEGRAM_WEBHOOK_SECRET).
+      - O envio das mensagens e feito por um programa que precisa ficar rodando em UM computador
+        (o Vercel nao mantem programas ligados):  python -m scripts.notifications
+        Use o .env desse computador (chave do Firebase e token do bot). So uma pessoa de cada vez.
+      - Testar confirmacao, alerta e ticket final; Telegram fora do ar = ticket salvo para reenvio (T12).
+[ ] D. Ensaio integrado no Wokwi com reserva paga e confirmada (T07 a T11)       Resp.: ________
+[ ] E. Relatorio de testes: trocar resultados "com duble" pelos observados e preencher o
+      "Registro de ensaio integrado" (fim do docs/RELATORIO_TESTES.md)           Resp.: ________
+[ ] F. Entregas: link do Wokwi (sem segredos), prints do pagamento e do Telegram (sem dados
+      secretos), apresentacao de 5 a 10 minutos e reflexao individual de cada integrante.  Resp.: ________
+
+
+8) REGRAS DO ROTEIRO QUE NAO PODEM SER QUEBRADAS
+------------------------------------------------
+- A reserva so fica CONFIRMED depois que o backend verificar o pagamento aprovado no provedor.
+  O retorno do navegador para a pagina de sucesso nao prova pagamento.
+- O preco e sempre calculado no servidor, a partir do banco.
+- O ESP32 nao guarda token do Mercado Pago, do Telegram nem credencial do Firebase.
+- Quem decide o acesso e o backend; sem validacao, a cancela fica fechada.
+- Eventos de entrada/saida e webhooks nao podem duplicar cobranca nem ticket.
+- O certificado HTTPS e verificado no ESP32 (setCACert), sem setInsecure.
+
+
+9) PROBLEMAS COMUNS
+-------------------
+- "No module named ..."           -> falta ativar o ambiente: source .venv/bin/activate
+- "File ... was not found" (chave) -> caminho errado no GOOGLE_APPLICATION_CREDENTIALS do .env
+- Site do Vercel com erro 500      -> geralmente falta variavel no Vercel; avise a Aryadne
+                                      (ela confere a aba Logs e faz Redeploy).
+- Site do Vercel demora na 1a vez  -> normal apos um tempo parado. O ESP32 desiste em 8 s:
+                                      abra o site antes de testar no Wokwi.
+- Mapa em branco / "Access blocked" -> o cabecalho Referrer-Policy deve ser
+                                      strict-origin-when-cross-origin (ja corrigido no codigo).
+- Mudou a URL do site?              -> atualizar APP_BASE_URL (Vercel e .env) e API_BASE (config.h).
+
+
+10) ESTRUTURA DO PROJETO
+------------------------
+  api/index.py      entrada do Vercel (chama o app.py)
+  app.py            entrada local (python app.py)
+  backend/          regras de negocio, Firebase, Mercado Pago, Telegram
+  frontend/         site (HTML, CSS, JS, mapa)
+  firmware/         sketch do ESP32, diagramas, exemplo de config
+  scripts/          seed, check_firebase, notifications
+  tests/            testes automatizados
+  docs/             guia e relatorio de testes
+  vercel.json, requirements.txt, .vercelignore    configuracao do Vercel

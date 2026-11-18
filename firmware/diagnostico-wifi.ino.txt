@@ -1,0 +1,27 @@
+// Teste isolado: substitua temporariamente TODO o sketch.ino no Wokwi por este conteudo.
+// Nao adicione como outra aba .ino: este arquivo tem seu proprio setup/loop.
+#include <WiFi.h>
+
+unsigned long lastReport = 0;
+bool connected = false;
+
+void setup() {
+  Serial.begin(115200);
+  WiFi.mode(WIFI_STA);
+  Serial.println("[TESTE] Conectando uma vez a Wokwi-GUEST, canal 6.");
+  WiFi.begin("Wokwi-GUEST", "", 6);
+}
+
+void loop() {
+  const unsigned long tick = millis();
+  if (WiFi.status() == WL_CONNECTED && !connected) {
+    connected = true;
+    Serial.print("[TESTE] WIFI OK, IP ");
+    Serial.println(WiFi.localIP());
+  }
+  if (tick - lastReport >= 5000) {
+    lastReport = tick;
+    Serial.printf("[TESTE] segundos simulados=%lu status=%d\n", tick / 1000, (int)WiFi.status());
+  }
+  delay(100);
+}

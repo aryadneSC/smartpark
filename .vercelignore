@@ -1,0 +1,6 @@
+.env
+.env.*
+firmware/config.h
+*firebase*.json
+.venv
+venv

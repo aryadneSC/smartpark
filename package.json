@@ -1,0 +1,7 @@
+{
+  "name": "smartpark-atividade",
+  "private": true,
+  "scripts": {
+    "test": "python3 -m unittest discover -s tests -v && node --check frontend/scripts/map.js"
+  }
+}

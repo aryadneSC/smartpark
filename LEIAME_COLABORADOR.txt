@@ -1,0 +1,105 @@
+SMARTPARK IOT - PASSAGEM DE BASTAO (LEIA PRIMEIRO)
+===================================================
+o .env, config.h e a chave do Firebase ficam de fora de proposito. Voce vai criar os seus (secao 2).
+
+
+1) ESTADO ATUAL
+---------------
+Pronto no codigo (17 testes automatizados passam):
+- Backend Flask (backend/app.py): mapa/lista de locais, disponibilidade, login (Firebase Auth),
+  reserva com transacao e expiracao, checkout Mercado Pago, webhook com validacao, Telegram,
+  rotas do ESP32 (/api/iot/access-request e /api/iot/telemetry), painel do operador.
+- Frontend servido pelo proprio Flask (frontend/): mapa Leaflet, reserva, historico, operador.
+- Firmware (firmware/sketch.ino): maquina de estados, servo, LEDs, LCD, botoes, HTTPS com
+  certificado (setCACert). Nao use setInsecure().
+- Documentacao: docs/GUIA_EQUIPE.md (roteiro e modelo do Firestore), docs/RELATORIO_TESTES.md.
+
+Escrito, mas NAO validado com credenciais reais:
+- Checkout e webhook do Mercado Pago, mensagens do Telegram, entrada LIBERADA no Wokwi.
+
+
+2) O QUE VOCE PRECISA CRIAR (nunca vai no zip nem no Git)
+---------------------------------------------------------
+1. .env: copie .env.example para .env e preencha.
+   - SMARTPARK_MODE=firestore
+   - GOOGLE_APPLICATION_CREDENTIALS: caminho de uma chave JSON de conta de servico, guardada FORA
+     da pasta do projeto (ex.: ~/.smartpark/firebase-key.json, permissao 600).
+   - FIREBASE_PROJECT_ID e FIREBASE_WEB_API_KEY (Firebase Console > Configuracoes do projeto).
+   - DEVICE_ID=esp32-centro-01 e DEVICE_SHARED_SECRET (gere: python -c "import secrets; print(secrets.token_urlsafe(32))").
+   - APP_BASE_URL: URL HTTPS do tunel, sem barra no final.
+2. Chave do Firebase: peca acesso ao projeto ao dono OU receba a chave por canal seguro.
+   Nao envie por e-mail/zip/Git. Em caso de duvida, gere uma chave nova.
+3. Mercado Pago: aplicacao de TESTE no painel de desenvolvedores (token e segredo de webhook de teste).
+4. Telegram: bot novo no BotFather (token novo).
+5. Wokwi: copie firmware/config.example.h para uma aba config.h e preencha (URL do tunel,
+   DEVICE_ID, DEVICE_SECRET igual ao DEVICE_SHARED_SECRET, certificado RAIZ do dominio do tunel).
+
+
+3) COMO RODAR
+-------------
+    python3 -m venv .venv
+    source .venv/bin/activate            (Windows: .venv\Scripts\activate)
+    pip install -r backend/requirements.txt
+    python -m scripts.check_firebase     (deve responder OK)
+    python scripts/seed.py               (uma vez, com o servidor parado)
+    python app.py                        (abre em http://127.0.0.1:5000)
+    python3 -m unittest discover -s tests -v     (testes)
+Tunel (para webhooks e Wokwi): cloudflared tunnel --url http://127.0.0.1:5000
+A URL do tunel gratuito MUDA a cada reinicio: atualize APP_BASE_URL e API_BASE e reinicie o backend.
+Mudou o .env? Reinicie o backend.
+Worker de notificacoes (Telegram): python -m scripts.notifications (outro terminal, mesmo ambiente).
+Permissao de operador: custom claim "operator" (veja docs/GUIA_EQUIPE.md); sair e entrar de novo.
+
+
+4) PENDENCIAS (em ordem)
+------------------------
+A. Telegram
+   - Preencher TELEGRAM_BOT_TOKEN, TELEGRAM_BOT_USERNAME, TELEGRAM_WEBHOOK_SECRET.
+   - Registrar o webhook do bot apontando para APP_BASE_URL + /webhooks/telegram, com o mesmo
+     segredo (parametro secret_token do setWebhook da Telegram Bot API).
+   - Vincular o chat do usuario pelo fluxo de codigo (/start CODIGO), nunca por chat_id vindo do navegador.
+   - Testar confirmacao, alerta operacional e ticket final; Telegram fora do ar = ticket salvo e PENDING_RETRY (T12).
+B. Checkout Mercado Pago (com credenciais de teste)
+   - Preencher MERCADOPAGO_ACCESS_TOKEN e MERCADOPAGO_WEBHOOK_SECRET; cadastrar o webhook com a URL do tunel.
+   - Testar aprovado, rejeitado, pendente, webhook duplicado e pagamento apos a reserva expirar (T04 a T06).
+   - Se for personalizar o checkout, mantenha as regras da secao 5.
+C. Wokwi: FALHA_REDE
+   - Sintoma: "[API] ... -> -1 | connection refused | TLS: ERROR - Generic error". E falha ao ABRIR a
+     conexao (DNS/TCP), nao de certificado. O certificado raiz e valido.
+   - Diagnostico: projeto novo no Wokwi com firmware/diagnostico-wifi.ino.txt (so Wi-Fi) e, depois,
+     um teste de DNS/conexao com o host do tunel e com example.com. Se o simulador nao alcanca o
+     tunel, documente e escolha outra alternativa (veja o roteiro: tunel HTTPS ou gateway do Wokwi).
+   - GPIO 27 = botao de ENTRADA, GPIO 14 = botao de SAIDA, os dois juntos = MANUTENCAO.
+D. Ensaio integrado (T07 a T11) com uma reserva paga e confirmada; preencher o "Registro de ensaio
+   integrado" no fim de docs/RELATORIO_TESTES.md com resultados observados.
+E. Entregas formais: link do projeto Wokwi (sem segredos), prints do webhook/status do pagamento sem
+   dados secretos, exemplos de mensagens do Telegram, apresentacao de 5 a 10 min e reflexao individual.
+
+
+5) REGRAS QUE NAO PODEM SER QUEBRADAS (roteiro)
+-----------------------------------------------
+- Reserva so fica CONFIRMED depois que o backend verificar o pagamento aprovado no provedor.
+  Retorno do navegador a pagina de sucesso nao comprova pagamento.
+- Preco sempre calculado no servidor a partir do banco; o navegador nao e fonte do valor.
+- ESP32 nao guarda token do Mercado Pago, do Telegram nem credencial do Firebase.
+- Acesso decidido pelo backend; sem validacao a cancela fica fechada (nega por padrao).
+- Eventos de entrada/saida e webhooks sao idempotentes (event_id; sem cobranca ou ticket duplicado).
+- Certificado HTTPS verificado no ESP32 (setCACert), sem setInsecure.
+
+
+6) SEGURANCA
+------------
+- Nunca versione .env, chaves JSON nem config.h (ja estao no .gitignore). Confira com: git ls-files
+- A chave do Firebase e o token do bot que circularam antes em arquivos do projeto precisam estar
+  REVOGADOS (Google Cloud > IAM > Contas de servico > Chaves; BotFather > /revoke). Confirme com o dono.
+- Troque DEVICE_SHARED_SECRET e o segredo no config.h se o projeto do Wokwi for exibido ou compartilhado.
+
+7) OBSERVACOES TECNICAS
+-----------------------
+- O README cita arquivos que nao vieram neste zip (scripts de empacotamento, PDF de evidencias);
+  ignore essas partes. O guia vigente esta em docs/GUIA_EQUIPE.md (e .pdf).
+- wowki/diagram.json tem o 2o HC-SR04 (TRIG 25, ECHO 26); firmware/diagram.json e o do projeto Wokwi atual.
+- O FirestoreStore le todas as colecoes a cada operacao (didatico); em uso prolongado pode consumir
+  a cota gratuita de leituras. Registre como limitacao no relatorio.
+- O cabecalho Referrer-Policy esta como strict-origin-when-cross-origin: com "same-origin" o
+  OpenStreetMap bloqueia os blocos do mapa.

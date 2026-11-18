@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+
+  <title>SmartPark IoT — Reserve sua vaga</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+
+  <link rel="stylesheet" href="/static/css/style.css">
+  <script type="module" src="/static/scripts/map.js" defer></script>
+
+</head>
+<body>
+
+  <!-- ============ CABEÇALHO ============ -->
+  <header>
+    <div class="logo-area">
+        <h1>SmartPark IoT</h1>
+        <p id="modeBadge">Estacionamento inteligente</p>
+    </div>
+
+    <div class="user-area">
+      <p id="userName"></p>
+      <button id="btnLogin" type="button">Entrar</button>
+    </div>
+  </header>
+
+  <main>
+    <aside>
+      <!-- ============ MENU ============ -->
+      <div class="menu-actions">
+        <nav aria-label="Seções">
+          <ul>
+            <li id="li-reservar">
+              <button type="button" id="tab-reservar" aria-controls="reservar" aria-current="true">Reservar</button>
+            </li>
+            <li>
+              <button type="button" id="tab-minhas-reservas" aria-controls="minhas-reservas">Minhas reservas</button>
+            </li>
+            <li>
+              <button type="button" id="tab-operador" aria-controls="operador">Operador</button>
+            </li>
+          </ul>
+        </nav>
+      </div>
+
+        <!-- ============ RESERVAR (RF02, RF03, RF04, RF05) ============ -->
+        <section id="reservar" class="menu-content">
+          <h2>Reserve sua vaga</h2>
+          <p>Escolha um estacionamento no mapa e informe o período previsto.</p>
+
+          <label for="lotFilter">Buscar local</label><input id="lotFilter" type="search" placeholder="Nome ou endereço"><label for="lotSelect">Estacionamento</label><select id="lotSelect"><option value="">Selecione um local</option></select>
+          <div id="lotCard">
+            <p>Nenhum estacionamento selecionado.</p>
+          </div>
+
+          <form id="formReserva" novalidate>
+            <fieldset>
+              <legend>Período</legend>
+
+              <label for="arrival">Chegada prevista</label>
+              <input type="datetime-local" id="arrival" name="arrival" required>
+
+              <label for="departure">Saída prevista</label>
+              <input type="datetime-local" id="departure" name="departure" required>
+            </fieldset>
+
+            <div id="summary" aria-live="polite">
+              <p>Valor estimado: <output id="priceEstimate">—</output></p>
+              <p>Vagas disponíveis: <output id="spacesAvailable">—</output></p>
+            </div>
+
+            <button id="btnPagar" type="submit" disabled>Reservar e pagar</button>
+            <div id="msgReserva" role="status"></div>
+          </form>
+
+          <p>O valor é calculado pelo servidor. A reserva só é confirmada depois que o pagamento for verificado.</p>
+        </section>
+
+        <!-- ============ MINHAS RESERVAS (RF06, RF09) ============ -->
+        <section id="minhas-reservas" class="menu-content hidden">
+          <h2>Minhas reservas</h2>
+          <p>Acompanhe o status e receba o ticket pelo Telegram.</p>
+
+          <div id="msgRetorno" role="status"></div>
+
+          <button id="btnTelegram" type="button">Vincular Telegram</button>
+          <div id="msgTelegram" role="status"></div>
+
+          <h3>Histórico</h3>
+          <div id="listaReservas">
+            <p>Entre para consultar suas reservas.</p>
+          </div>
+        </section>
+
+        <!-- ============ OPERADOR (RF10) ============ -->
+        <section id="operador" class="menu-content hidden">
+          <h2>Painel do operador</h2>
+
+          <div id="adminLocked">
+            <p>Acesso restrito. Entre com uma conta de operador.</p>
+          </div>
+
+          <div id="adminContent" class="hidden">
+            <h3>Ocupação</h3>
+            <div id="adminOcupacao">
+              <p>Nome do estacionamento — <meter min="0" max="100" value="0">0%</meter> 0/0 vagas ocupadas</p>
+            </div>
+
+            <h3>Reservas</h3>
+            <div id="adminReservas">
+              <table>
+                <thead>
+                  <tr>
+                    <th scope="col">Reserva</th>
+                    <th scope="col">Local</th>
+                    <th scope="col">Chegada</th>
+                    <th scope="col">Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td>SP-0000</td>
+                    <td>—</td>
+                    <td>—</td>
+                    <td>—</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+            <button type="button" id="btnRetry">Processar notificações pendentes</button><p id="msgRetry" role="status"></p><h3>Alertas</h3>
+            <div id="adminAlertas">
+              <p>Nenhum alerta.</p>
+            </div>
+
+            <h3>Cadastrar estacionamento</h3>
+            <form id="formLot" novalidate>
+              <label for="lotName">Nome</label>
+              <input id="lotName" name="name" maxlength="80" required>
+
+              <label for="lotAddress">Endereço aproximado</label>
+              <input id="lotAddress" name="address" maxlength="120" required>
+
+              <label for="lotLat">Latitude</label>
+              <input id="lotLat" name="latitude" type="number" step="any" min="-90" max="90" required>
+
+              <label for="lotLng">Longitude</label>
+              <input id="lotLng" name="longitude" type="number" step="any" min="-180" max="180" required>
+
+              <label for="lotRate">Tarifa por hora (R$)</label>
+              <input id="lotRate" name="hourly_rate" type="number" step="0.01" min="0.01" required>
+
+              <label for="lotSpaces">Quantidade de vagas</label><input id="lotSpaces" name="spaces" type="number" min="1" max="50" value="1" required><button type="submit">Cadastrar</button>
+              <div id="msgLot" role="status"></div>
+            </form>
+          </div>
+        </section>
+      
+    </aside>
+
+    <div class="container-map">
+      <!-- ============ MAPA (RF01) ============ -->
+      <section id="mapa" aria-label="Mapa dos estacionamentos">
+        <div id="map"></div>
+      </section>
+    </div>
+
+  </main>
+
+  <!-- ============ LOGIN ============ -->
+  <dialog id="dlgLogin">
+    <form method="dialog" id="formLogin">
+      <h2>Entrar</h2>
+
+      <label for="loginEmail">E-mail</label>
+      <input id="loginEmail" name="email" type="email" autocomplete="username" required>
+
+      <label for="loginPass">Senha</label>
+      <input id="loginPass" name="password" type="password" autocomplete="current-password" required>
+
+      <label for="demoToken" id="demoLabel" class="hidden">Token de demonstração local</label><input id="demoToken" type="password" class="hidden" autocomplete="off"><div id="msgLogin" role="status"></div>
+
+      <button type="submit">Entrar</button>
+      <button type="button" id="loginCancel">Cancelar</button>
+    </form>
+  </dialog>
+
+  <footer>
+    <p>SmartPark IoT — protótipo educacional. Não use para controlar uma cancela real.</p>
+  </footer>
+
+</body>
+</html>

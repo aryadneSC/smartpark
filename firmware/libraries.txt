@@ -1,7 +1,8 @@
 # Wokwi Library List
 # See https://docs.wokwi.com/guides/libraries
 
-ArduinoJson
-UniversalTelegramBot
-LiquidCrystal I2C
+# Automatically added based on includes:
+
 ESP32Servo
+LiquidCrystal I2C
+ArduinoJson

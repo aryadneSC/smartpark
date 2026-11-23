@@ -105,7 +105,10 @@ def demo_seed(state):
 
 def create_app(store=None, payment_provider=None, telegram_provider=None, auth_verifier=None):
     load_dotenv(ROOT / '.env')
-    app = Flask(__name__, static_folder=str(ROOT / 'frontend'), static_url_path='/static')
+    # No Vercel, os arquivos públicos são servidos pela CDN a partir de /public.
+    # Localmente, o Flask mantém /static para facilitar o desenvolvimento.
+    static_folder = None if os.getenv('VERCEL') else str(ROOT / 'frontend')
+    app = Flask(__name__, static_folder=static_folder, static_url_path='/static')
     app.config['MAX_CONTENT_LENGTH'] = 16384
     CORS(app, origins=os.getenv('FRONTEND_ORIGIN', 'http://127.0.0.1:5000').split(','))
     demo = os.getenv('SMARTPARK_MODE', 'firestore') == 'demo'

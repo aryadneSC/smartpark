@@ -4,9 +4,9 @@ Continuação do trabalho da equipe conforme **SmartPark IoT Roteiro Atividade.p
 Flask + Firestore + HTML/CSS/JavaScript + Leaflet/OpenStreetMap + ESP32/Wokwi.
 A paleta, as telas, os cadastros fictícios e a pinagem original foram aproveitados.
 
-A documentação oficial da atividade está em [docs/GUIA_EQUIPE.pdf](docs/GUIA_EQUIPE.pdf).
-A fonte editável está em [docs/GUIA_EQUIPE.md](docs/GUIA_EQUIPE.md).
-Resultados e limites da validação: [docs/RELATORIO_TESTES.md](docs/RELATORIO_TESTES.md).
+A pasta `public/static/` contém as cópias dos arquivos CSS e JavaScript servidas pela CDN do Vercel. As versões de desenvolvimento continuam em `frontend/`.
+
+**Pendências documentais:** o guia da equipe (`docs/GUIA_EQUIPE.pdf` e `.md`) e o relatório de execução (`docs/RELATORIO_TESTES.md`) não vieram no ZIP original e não foram inventados nesta correção. Consulte `docs/PENDENCIAS_ENTREGA.md`.
 
 ## Executar
 

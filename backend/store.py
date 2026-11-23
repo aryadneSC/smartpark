@@ -27,15 +27,8 @@ class FirestoreStore:
         try:
             firebase_admin.get_app()
         except ValueError:
-            # No Vercel não existe arquivo de chave: o conteúdo do JSON vem na variável
-            # FIREBASE_SERVICE_ACCOUNT_JSON. Localmente, sem ela, continua valendo o
-            # GOOGLE_APPLICATION_CREDENTIALS (arquivo fora do projeto).
-            import json
-            from firebase_admin import credentials
             project = os.getenv('FIREBASE_PROJECT_ID')
-            raw = os.getenv('FIREBASE_SERVICE_ACCOUNT_JSON')
-            cred = credentials.Certificate(json.loads(raw)) if raw else None
-            firebase_admin.initialize_app(cred, options={'projectId': project} if project else None)
+            firebase_admin.initialize_app(options={'projectId': project} if project else None)
         self.db = firestore.client()
         self.firestore = firestore
 

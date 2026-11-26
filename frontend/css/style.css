@@ -119,24 +119,58 @@ meter {
     border-radius: 999px;
 }
 
-/* Zoom do Leaflet no canto inferior direito */
+/* Posiciona o controle de zoom do Leaflet no canto inferior direito do painel */
 .leaflet-top.leaflet-left {
-    top: auto;
-    left: auto;
-    bottom: 2rem;
-    right: 1rem;
+    position: fixed !important;
+    top: auto !important;
+    left: auto !important;
+    bottom: 3.6rem !important;
+    /* Largura do painel (430px) + margem (1rem) - respiro interno (1rem) */
+    right: calc(100vw - 430px - 1rem + 0.75rem) !important;
+    z-index: 40 !important;
+}
+
+@media (min-width: 1024px) {
+    .leaflet-top.leaflet-left {
+        right: calc(100vw - 460px - 1rem + 0.75rem) !important;
+    }
+}
+
+@media (max-width: 767px) {
+    .leaflet-top.leaflet-left {
+        right: 1.5rem !important;
+        bottom: calc(64vh + 1.25rem) !important;
+    }
 }
 
 .leaflet-control-zoom {
-    border: 1px solid rgba(255, 255, 255, 0.75) !important;
-    background: rgba(255, 255, 255, 0.92) !important;
-    backdrop-filter: blur(12px);
-    box-shadow: 0 10px 24px rgba(15, 23, 42, 0.22) !important;
-    border-radius: 0.85rem !important;
+    display: flex !important;
+    flex-direction: row !important;
+    border: 1px solid rgba(22, 27, 38, 0.2) !important;
+    background: rgba(255, 255, 255, 0.94) !important;
+    backdrop-filter: blur(12px) !important;
+    box-shadow: 0 8px 20px rgba(15, 23, 42, 0.22) !important;
+    border-radius: 0.75rem !important;
     overflow: hidden;
+    margin: 0 !important;
 }
 
 .leaflet-control-zoom a {
+    width: 34px !important;
+    height: 34px !important;
+    line-height: 34px !important;
     background: transparent !important;
+    color: #161B26 !important;
+    font-weight: 700 !important;
+    border-bottom: none !important;
+    border-right: 1px solid rgba(15, 23, 42, 0.12) !important;
+}
+
+.leaflet-control-zoom a:last-child {
+    border-right: none !important;
+}
+
+.leaflet-control-zoom a:hover {
+    background: #FFB800 !important;
     color: #161B26 !important;
 }

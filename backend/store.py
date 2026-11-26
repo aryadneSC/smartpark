@@ -1,4 +1,5 @@
 """Persistência transacional do protótipo; nunca substitui Firebase silenciosamente."""
+import json
 import os
 from copy import deepcopy
 from threading import RLock
@@ -23,12 +24,27 @@ class MemoryStore:
 class FirestoreStore:
     def __init__(self):
         import firebase_admin
-        from firebase_admin import firestore
+        from firebase_admin import credentials, firestore
         try:
             firebase_admin.get_app()
         except ValueError:
             project = os.getenv('FIREBASE_PROJECT_ID')
-            firebase_admin.initialize_app(options={'projectId': project} if project else None)
+            options = {'projectId': project} if project else None
+            credential = None
+            service_account = os.getenv('FIREBASE_SERVICE_ACCOUNT_JSON')
+            if service_account is None:
+                service_account = os.getenv('FIREBASE_CREDENTIALS')
+            if service_account is not None:
+                try:
+                    info = json.loads(service_account)
+                    if not isinstance(info, dict):
+                        raise ValueError
+                    credential = credentials.Certificate(info)
+                except ValueError:
+                    raise ValueError(
+                        'Configure FIREBASE_SERVICE_ACCOUNT_JSON com um JSON válido de conta de serviço do Firebase.'
+                    ) from None
+            firebase_admin.initialize_app(credential, options=options)
         self.db = firestore.client()
         self.firestore = firestore
 

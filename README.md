@@ -19,10 +19,17 @@ pip install -r backend/requirements.txt
 cp .env.example .env
 ```
 
-Preencha `.env`. Para apresentação sem Firebase, escolha `SMARTPARK_MODE=demo`
-e defina `DEMO_USER_TOKEN` e `DEMO_OPERATOR_TOKEN` diferentes e aleatórios.
-No login demo, use o token correspondente. Não há pagamento fictício aprovado pela interface:
-a integração externa continua exigindo configuração, e os testes usam dublês isolados.
+Use **Demonstração (DEV)** no cabeçalho, inclusive na hospedagem do Vercel, para abrir
+um seletor de sessão fictícia de motorista ou operador. Durante essa demonstração,
+as ações usam dados guardados apenas na página e não chamam Firebase, Mercado Pago
+ou Telegram: pagamentos podem ser aprovados/recusados de forma simulada e as mensagens
+do bot aparecem identificadas como simuladas. Recarregar a página reinicia os dados.
+
+O modo de backend `SMARTPARK_MODE=demo` continua disponível para testes de API sem
+Firebase; nesse modo, configure `DEMO_USER_TOKEN` e `DEMO_OPERATOR_TOKEN` se for
+usar as rotas Flask diretamente. Na ausência de `SMARTPARK_MODE=demo`, o backend usa
+Firebase para as operações reais. O botão DEV não autentica contas reais nem grava
+dados no projeto Firebase.
 
 ```bash
 python app.py
@@ -38,6 +45,11 @@ Para Firebase: use uma **nova** chave fora da pasta do projeto, configure
 `SMARTPARK_MODE=firestore`; habilite Authentication por e-mail/senha e Firestore.
 Execute `python scripts/seed.py` uma vez com o servidor parado. Consulte o guia para
 operadores, Mercado Pago de teste, Telegram e certificado HTTPS do ESP32.
+
+Para autorizar o painel, configure `SMARTPARK_OPERATOR_EMAILS` no `.env` local com
+os e-mails de operador separados por vírgula, ou atribua a custom claim Firebase
+`operator: true` às contas. A lista é avaliada no servidor após validar o token Firebase.
+No deploy, configure a mesma variável nas variáveis de ambiente da hospedagem.
 
 ### Deploy na Vercel
 

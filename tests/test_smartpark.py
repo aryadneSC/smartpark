@@ -190,6 +190,15 @@ class SmartParkTests(unittest.TestCase):
         self.assertEqual(self.client.get('/api/admin/dashboard').status_code, 401)
         self.assertEqual(self.client.get('/api/admin/dashboard', headers={'Authorization': 'Bearer admin'}).status_code, 200)
 
+    def test_operator_email_allowlist(self):
+        with patch.dict(os.environ, {'SMARTPARK_OPERATOR_EMAILS': 'Operador@Email.com'}):
+            app = create_app(self.store, self.mp, self.bot,
+                lambda token: {'uid': token, 'email': 'operador@email.com'})
+        client = app.test_client()
+        headers = {'Authorization': 'Bearer operador'}
+        self.assertTrue(client.get('/api/me', headers=headers).json['operator'])
+        self.assertEqual(client.get('/api/admin/dashboard', headers=headers).status_code, 200)
+
     def test_expiry_late_payment_and_cancellation(self):
         r = self.reserve()
         self.store.run(lambda s: s['reservations'][r['id']].update(expires_at=iso(now() - timedelta(seconds=1))))

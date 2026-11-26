@@ -17,7 +17,7 @@
   --cor-sucesso: #1e7a4c;
   --cor-alerta: #a86400;
   --cor-erro: #b3261e;
-  
+
 
 }
 
@@ -33,12 +33,12 @@
 
 
 header button {
-  border: 2px solid var(--cor-fundo);   
-  background-color: inherit; 
+  border: 2px solid var(--cor-fundo);
+  background-color: inherit;
   color: var(--cor-fundo);
   padding: var(--espaco-2) var(--espaco-4);
-  font: inherit;          
-  border-radius: var(--espaco-7);    
+  font: inherit;
+  border-radius: var(--espaco-7);
   cursor: pointer;
 }
 
@@ -174,3 +174,53 @@ td, th { text-align: left; border-bottom: 1px solid #c5c9ce; padding: .4rem; ove
 footer { padding: .5rem 1rem; background: var(--cor-superficie-fundo); font-size: .8rem; }
 #map { min-height: 480px; height: calc(100vh - 100px); position: sticky; top: 0; }
 @media (max-width: 760px) { main { flex-direction: column-reverse; } aside { max-width: none; min-width: 0; } #map { height: 38vh; min-height: 260px; } header .logo-area { display: block; } header .user-area { gap: .5rem; } header p { font-size: .8rem; } }
+
+/* Painel do operador: ocupa a mesma coluna lateral, sem forçar largura extra. */
+.admin-heading { margin-bottom: 1.1rem; }
+.admin-heading h2 { color: var(--cor-primaria); font-size: 1.5rem; line-height: 1.25; }
+.admin-heading p { margin: .45rem 0 0; color: #66717c; line-height: 1.45; }
+.eyebrow { margin: 0 0 .35rem !important; color: #806300 !important; font-size: .72rem; font-weight: 700; letter-spacing: .1em; }
+.admin-toolbar { display: grid; gap: .65rem; margin: 0 0 1rem; }
+.admin-sync { margin: 0; color: #68737e; font-size: .78rem; line-height: 1.4; }
+.admin-toolbar button { width: 100%; }
+.admin-section { min-width: 0; margin: .9rem 0; padding: .9rem; background: #f7f8f9; border: 1px solid #e2e5e8; border-radius: .65rem; }
+.section-heading { margin-bottom: .8rem; }
+.section-heading h3 { margin: 0; color: var(--cor-primaria); font-size: 1.05rem; }
+.section-heading p { margin: .35rem 0 0; color: #66717c; font-size: .82rem; line-height: 1.4; }
+.occupancy-grid, .reservation-list, .alert-list { display: grid; min-width: 0; gap: .65rem; }
+.occupancy-card, .reservation-card { min-width: 0; padding: .8rem; background: white; border: 1px solid #e0e3e6; border-radius: .55rem; }
+.occupancy-card-heading, .reservation-card-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: .5rem; }
+.occupancy-card-heading { margin-bottom: .65rem; font-size: .9rem; }
+.occupancy-card-heading strong, .reservation-card-heading strong { min-width: 0; overflow-wrap: anywhere; }
+.occupancy-card-heading span { color: #59636e; font-size: .8rem; text-align: right; }
+.occupancy-card small, .reservation-card small { color: #68737e; line-height: 1.45; }
+.occupancy-track { height: .5rem; margin-bottom: .5rem; overflow: hidden; background: #e5e8eb; border-radius: 99px; }
+.occupancy-track span { display: block; height: 100%; background: #1e7a4c; border-radius: inherit; }
+.reservation-card p { margin: .55rem 0; font-size: .84rem; line-height: 1.45; overflow-wrap: anywhere; }
+.status-pill { display: inline-flex; max-width: 100%; padding: .25rem .48rem; border-radius: 99px; background: #e9edf0; color: #384451; font-size: .68rem; font-weight: 700; line-height: 1.3; white-space: normal; }
+.status-PENDING_PAYMENT { background: #fff1c2; color: #775500; }
+.status-CONFIRMED, .status-CHECKED_IN { background: #dcf2e5; color: #165c39; }
+.status-COMPLETED { background: #e6eaf0; color: #435365; }
+.status-EXPIRED, .status-CANCELLED { background: #fce5e2; color: #8b2a23; }
+.alert-item { display: flex; min-width: 0; gap: .65rem; align-items: flex-start; padding: .75rem; background: white; border: 1px solid #e2e5e8; border-radius: .55rem; }
+.alert-indicator { flex: 0 0 .55rem; height: .55rem; margin-top: .25rem; border-radius: 50%; background: var(--cor-alerta); }
+.alert-item > div { min-width: 0; overflow-wrap: anywhere; }
+.alert-item p { margin: .3rem 0 0; color: #68737e; font-size: .8rem; line-height: 1.4; }
+.empty-state { margin: 0; padding: .55rem; color: #68737e; font-size: .86rem; }
+.user-area { flex-wrap: wrap; }
+#btnDemoMode { border: 1px solid var(--cor-secundaria); background: #fff8dc; color: var(--cor-primaria); font-size: .82rem; }
+#btnDemoMode:hover { background: var(--cor-secundaria); color: var(--cor-primaria); }
+.demo-role-options { display: grid; gap: .5rem; }
+.demo-role-options p { margin: .5rem 0; }
+.demo-messages { margin-top: 1rem; padding: .85rem; background: #f7f8f9; border: 1px solid #e2e5e8; border-radius: .6rem; }
+.demo-messages h3 { margin: 0 0 .7rem; font-size: .95rem; }
+#demoMessageList { display: grid; gap: .6rem; }
+.demo-message { padding: .7rem; background: white; border: 1px solid #e0e3e6; border-radius: .5rem; }
+.demo-message p { margin: .35rem 0; font-size: .85rem; line-height: 1.4; }
+.demo-message small { color: #68737e; }
+#dlgDemoPayment form { display: grid; gap: .25rem; }
+#dlgDemoPayment p { line-height: 1.45; }
+@media (max-width: 600px) {
+  .admin-toolbar { gap: .5rem; }
+  .admin-section { padding: .8rem; }
+}

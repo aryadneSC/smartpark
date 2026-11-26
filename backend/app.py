@@ -17,7 +17,7 @@ from flask_cors import CORS
 from werkzeug.exceptions import HTTPException
 
 from backend.providers import MercadoPago, Telegram, ProviderError, http_json
-from backend.store import MemoryStore, FirestoreStore
+from backend.store import LazyFirestoreStore, MemoryStore
 
 ROOT = Path(__file__).resolve().parents[1]
 BLOCKING = {'PENDING_PAYMENT', 'CONFIRMED', 'CHECKED_IN'}
@@ -109,17 +109,19 @@ def create_app(store=None, payment_provider=None, telegram_provider=None, auth_v
     app.config['MAX_CONTENT_LENGTH'] = 16384
     CORS(app, origins=os.getenv('FRONTEND_ORIGIN', 'http://127.0.0.1:5000').split(','))
     demo = os.getenv('SMARTPARK_MODE', 'firestore') == 'demo'
-    storage = store if store is not None else (MemoryStore() if demo else FirestoreStore())
+    operator_emails = {email.strip().casefold() for email in os.getenv('SMARTPARK_OPERATOR_EMAILS', '').split(',') if email.strip()}
+    storage = store if store is not None else (MemoryStore() if demo else LazyFirestoreStore())
     mp, telegram = payment_provider or MercadoPago(), telegram_provider or Telegram()
     app.extensions['store'] = storage
     if demo and store is None:
         storage.run(demo_seed)
 
-    def atomic(operation):
+    def atomic(operation, collections=None, filters=None, document_ids=None, serialize=True):
         def run(state):
             expire(state)
             return operation(state)
-        return storage.run(run)
+        return storage.run(run, collections=collections, filters=filters,
+                           document_ids=document_ids, serialize=serialize)
 
     def body():
         data = request.get_json(silent=True)
@@ -150,6 +152,9 @@ def create_app(store=None, payment_provider=None, telegram_provider=None, auth_v
                 raise RuleError('Sessão inválida ou expirada.', 401) from None
         if not claims or not claims.get('uid'):
             raise RuleError('Sessão inválida.', 401)
+        email = str(claims.get('email', '')).strip().casefold()
+        if claims.get('operator') or email in operator_emails:
+            claims = {**claims, 'operator': True}
         if operator and not claims.get('operator'):
             raise RuleError('Somente operador autorizado.', 403)
         return claims
@@ -235,12 +240,16 @@ def create_app(store=None, payment_provider=None, telegram_provider=None, auth_v
                 result.append({'id': key, **{k: place.get(k) for k in fields},
                                'total_spaces': len(spaces), 'free_spaces': len(free)})
             return result
-        return jsonify(atomic(operation))
+        return jsonify(atomic(operation, collections=('parking_lots', 'spaces', 'reservations')))
 
     @app.get('/api/parking-lots/<key>/availability')
     def availability(key):
         start, end = period(request.args)
-        return jsonify(atomic(lambda s: estimate(s, key, start, end)))
+        return jsonify(atomic(lambda s: estimate(s, key, start, end),
+            collections=('parking_lots', 'spaces', 'reservations'),
+            document_ids={'parking_lots': (key,)},
+            filters={'spaces': (('parking_lot_id', '==', key),),
+                     'reservations': (('parking_lot_id', '==', key),)}))
 
     @app.post('/api/reservations')
     def reserve():
@@ -259,13 +268,18 @@ def create_app(store=None, payment_provider=None, telegram_provider=None, auth_v
                 'tariff_policy': 'FIXED_PREPAID', 'payment_status': 'pending'}
             state['reservations'][reservation_id] = reservation
             return {'id': reservation_id, **reservation}
-        return jsonify(atomic(operation)), 201
+        return jsonify(atomic(operation, collections=('parking_lots', 'spaces', 'reservations'),
+            document_ids={'parking_lots': (key,)},
+            filters={'spaces': (('parking_lot_id', '==', key),),
+                     'reservations': (('parking_lot_id', '==', key),)})), 201
 
     @app.get('/api/reservations')
     def reservations():
         claims = user()
         return jsonify(atomic(lambda s: [{'id': key, **r} for key, r in s['reservations'].items()
-                                        if r['user_id'] == claims['uid']]))
+                                        if r['user_id'] == claims['uid']],
+                             collections=('reservations',),
+                             filters={'reservations': (('user_id', '==', claims['uid']),)}))
 
     @app.get('/api/reservations/<key>')
     def reservation(key):
@@ -274,7 +288,8 @@ def create_app(store=None, payment_provider=None, telegram_provider=None, auth_v
             result = {'id': key, **owned(state, key, claims)}
             result['ticket'] = state['tickets'].get(key)
             return result
-        return jsonify(atomic(operation))
+        return jsonify(atomic(operation, collections=('reservations', 'tickets'),
+                              document_ids={'reservations': (key,), 'tickets': (key,)}))
 
     @app.post('/api/reservations/<key>/cancel')
     def cancel(key):
@@ -288,7 +303,8 @@ def create_app(store=None, payment_provider=None, telegram_provider=None, auth_v
                 r['refund_status'] = 'MANUAL_REVIEW'
             r['status'] = 'CANCELLED'
             return {'status': r['status']}
-        return jsonify(atomic(operation))
+        return jsonify(atomic(operation, collections=('reservations', 'notifications'),
+                              document_ids={'reservations': (key,), 'notifications': ('cancel-' + key,)}))
 
     @app.post('/api/reservations/<key>/checkout')
     def checkout(key):
@@ -302,7 +318,7 @@ def create_app(store=None, payment_provider=None, telegram_provider=None, auth_v
                     raise RuleError('Checkout em processamento ou aguardando revisão do operador.', 409)
                 r['checkout_state'] = 'CREATING'
             return dict(r)
-        r = atomic(prepare)
+        r = atomic(prepare, collections=('reservations',), document_ids={'reservations': (key,)})
         if r.get('checkout_url'):
             return jsonify({'checkout_url': r['checkout_url']})
         try:
@@ -313,7 +329,8 @@ def create_app(store=None, payment_provider=None, telegram_provider=None, auth_v
                 current['checkout_state'] = 'MANUAL_REVIEW' if exc.uncertain else 'RETRY'
                 if exc.uncertain:
                     queue(state, 'checkout-' + key, 'ALERT', key, 'Resultado do checkout desconhecido: revisão manual.')
-            atomic(failed)
+            atomic(failed, collections=('reservations', 'notifications'),
+                   document_ids={'reservations': (key,), 'notifications': ('checkout-' + key,)})
             raise
         def save(state):
             current = owned(state, key, claims)
@@ -324,7 +341,8 @@ def create_app(store=None, payment_provider=None, telegram_provider=None, auth_v
                 'provider': 'mercadopago', 'preference_id': result['preference_id'],
                 'status': 'pending', 'amount': r['price_estimate'], 'currency': 'BRL'})
             return {'checkout_url': current['checkout_url']}
-        return jsonify(atomic(save))
+        return jsonify(atomic(save, collections=('reservations', 'payments'),
+                              document_ids={'reservations': (key,), 'payments': ('preference-' + key,)}))
 
     @app.post('/webhooks/mercadopago')
     def payment_webhook():
@@ -399,7 +417,10 @@ def create_app(store=None, payment_provider=None, telegram_provider=None, auth_v
                     r['refund_status'] = 'MANUAL_REVIEW'
                     queue(state, 'late-' + key, 'ALERT', key, 'Pagamento tardio: revisão manual; entrada negada.')
             return {'received': True}
-        return jsonify(atomic(operation))
+        return jsonify(atomic(operation, collections=('reservations', 'payments', 'spaces', 'notifications'),
+            document_ids={'payments': (payment_id,),
+                          'notifications': ('reconcile-' + payment_id, 'duplicate-payment-' + payment_id,
+                                            'late-' + key, 'confirm-' + key)}))
 
     @app.post('/api/iot/access-request')
     def access():
@@ -461,7 +482,13 @@ def create_app(store=None, payment_provider=None, telegram_provider=None, auth_v
             if not allowed:
                 queue(state, 'access-' + event, 'ALERT', key if r else None, 'Acesso negado no dispositivo ' + dev)
             return response
-        return jsonify(atomic(operation))
+        return jsonify(atomic(operation,
+            collections=('devices', 'access_events', 'reservations', 'spaces', 'tickets', 'notifications'),
+            document_ids={'devices': (dev,), 'access_events': (event,), 'reservations': (key,),
+                          'spaces': lambda state: (state['reservations'][key]['space_id'],)
+                          if key in state['reservations'] else (),
+                          'tickets': (key,), 'notifications': ('ticket-' + key, 'overdue-' + key,
+                                                               'access-' + event)}))
 
     @app.post('/api/iot/telemetry')
     def telemetry():
@@ -481,13 +508,17 @@ def create_app(store=None, payment_provider=None, telegram_provider=None, auth_v
             if status in {'FALHA_REDE', 'MANUTENCAO'}:
                 queue(state, 'device-' + dev + '-' + status, 'ALERT', text='Dispositivo ' + dev + ': ' + status)
             return {'received': True}
-        return jsonify(atomic(operation))
+        return jsonify(atomic(operation, collections=('devices', 'notifications'),
+                              document_ids={'devices': (dev,),
+                                            'notifications': ('device-' + dev + '-' + status,)},
+                              serialize=False))
 
     @app.post('/api/telegram/link')
     def telegram_link():
         claims = user()
         code = secrets.token_urlsafe(24)
-        atomic(lambda s: s['telegram_links'].update({code: {'user_id': claims['uid'], 'expires_at': iso(now() + timedelta(minutes=10)), 'used': False}}))
+        atomic(lambda s: s['telegram_links'].update({code: {'user_id': claims['uid'], 'expires_at': iso(now() + timedelta(minutes=10)), 'used': False}}),
+               collections=('telegram_links',), document_ids={'telegram_links': (code,)})
         username = os.getenv('TELEGRAM_BOT_USERNAME', '')
         return jsonify({'url': f'https://t.me/{username}?start={code}' if username else None,
                         'instruction': 'Configure o bot e abra o link para enviar /start.'})
@@ -510,14 +541,15 @@ def create_app(store=None, payment_provider=None, telegram_provider=None, auth_v
                 state['users'].setdefault(link['user_id'], {})['telegram_chat_id'] = str(chat['id'])
                 link['used'] = True
             return {'received': True}
-        return jsonify(atomic(operation))
+        return jsonify(atomic(operation, collections=('telegram_links', 'users'),
+                              document_ids={'telegram_links': (code,)}))
 
     @app.get('/api/admin/dashboard')
     def dashboard():
         user(operator=True)
         def operation(state):
             for dev, d in state['devices'].items():
-                if d.get('last_seen') and now() - date(d['last_seen']) > timedelta(minutes=2):
+                if not d.get('last_seen') or now() - date(d['last_seen']) > timedelta(minutes=2):
                     queue(state, 'offline-' + dev, 'ALERT', text='Dispositivo sem comunicação: ' + dev)
             return {'lots': [{'id': key, 'name': p['name'],
                 'total': sum(s['parking_lot_id'] == key and s.get('active', False) for s in state['spaces'].values()),
@@ -525,8 +557,13 @@ def create_app(store=None, payment_provider=None, telegram_provider=None, auth_v
                 for key, p in state['parking_lots'].items()],
                 'reservations': [{'id': key, **r} for key, r in state['reservations'].items()],
                 'alerts': [{'id': key, **n} for key, n in state['notifications'].items() if n['type'] == 'ALERT'],
-                'notifications': [{'id': key, **n} for key, n in state['notifications'].items()]}
-        return jsonify(atomic(operation))
+                'devices': [{'id': key, **d,
+                    'connection': 'OFFLINE' if not d.get('last_seen') or now() - date(d['last_seen']) > timedelta(minutes=2) else 'ONLINE',
+                    'parking_lot_name': state['parking_lots'].get(d.get('parking_lot_id'), {}).get('name', d.get('parking_lot_id', '—'))}
+                    for key, d in state['devices'].items()]}
+        return jsonify(atomic(operation, collections=('parking_lots', 'spaces', 'reservations',
+                                                       'devices', 'notifications'),
+                              filters={'notifications': (('type', '==', 'ALERT'),)}))
 
     @app.post('/api/admin/parking-lots')
     def add_lot():
@@ -550,7 +587,7 @@ def create_app(store=None, payment_provider=None, telegram_provider=None, auth_v
             for i in range(count):
                 state['spaces'][f'{key}-A-{i+1:02}'] = {'parking_lot_id': key, 'label': f'A-{i+1:02}', 'active': True, 'occupancy_state': 'FREE'}
             return {'id': key}
-        return jsonify(atomic(operation)), 201
+        return jsonify(atomic(operation, collections=('parking_lots', 'spaces'))), 201
 
     def deliver_notifications():
         def claim(state):
@@ -573,12 +610,12 @@ def create_app(store=None, payment_provider=None, telegram_provider=None, auth_v
                     t = state['tickets'][n['reservation_id']]
                     text = f"SMARTPARK — COMPROVANTE {t['ticket_id']} | {place.get('name')} | vaga {t['space_id']} | chegada {t['arrival_real']} | saída {t['departure_real']} | {t['duration_minutes']} min | R$ {t['final_amount']:.2f} | pagamento {t['payment_status']}"
                 n.update(status='SENDING', claimed_at=iso(now()), attempts=n['attempts'] + 1)
-                jobs.append((key, str(chat), text))
+                jobs.append((key, str(chat), text, n.get('reservation_id')))
                 if len(jobs) == 10:
                     break
             return jobs
-        jobs = atomic(claim)
-        for key, chat, text in jobs:
+        jobs = atomic(claim, collections=('notifications', 'reservations', 'parking_lots', 'users', 'tickets'))
+        for key, chat, text, reservation_id in jobs:
             message_id, status = None, 'SENT'
             try:
                 message_id = telegram.send(chat, text)
@@ -592,7 +629,10 @@ def create_app(store=None, payment_provider=None, telegram_provider=None, auth_v
                     n['sent_at'] = iso(now())
                 if n['type'] == 'TICKET':
                     state['tickets'][n['reservation_id']]['telegram_status'] = n['status']
-            atomic(finish)
+            doc_ids = {'notifications': (key,)}
+            if reservation_id:
+                doc_ids['tickets'] = (reservation_id,)
+            atomic(finish, collections=('notifications', 'tickets'), document_ids=doc_ids)
         return {'processed': len(jobs)}
 
     app.extensions['deliver_notifications'] = deliver_notifications

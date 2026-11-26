@@ -1,196 +1,361 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
+
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-
   <title>SmartPark IoT — Reserve sua vaga</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap"
+    rel="stylesheet">
+
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['"Plus Jakarta Sans"', 'sans-serif'],
+          },
+          colors: {
+            asfalto: '#161B26',
+            sinal: '#FFB800',
+            sinalHover: '#E5A500',
+          }
+        }
+      }
+    }
+  </script>
+
   <link rel="stylesheet" href="/static/css/style.css">
   <script type="module" src="/static/scripts/map.js" defer></script>
-
 </head>
-<body>
 
-  <!-- ============ CABEÇALHO ============ -->
-  <header>
-    <div class="logo-area">
-        <h1>SmartPark IoT</h1>
-        <p id="modeBadge">Estacionamento inteligente</p>
+<body class="font-sans text-slate-900 antialiased overflow-hidden bg-slate-200">
+
+  <!-- ============ MAPA EM TELA CHEIA (FUNDO) ============ -->
+  <div class="container-map fixed inset-0 z-0 bg-slate-200">
+    <section id="mapa" aria-label="Mapa dos estacionamentos" class="w-full h-full">
+      <div id="map" class="w-full h-full"></div>
+    </section>
+  </div>
+
+  <header
+    class="topo-glass fixed top-3 left-3 right-3 md:left-auto md:right-4 md:top-4 z-30 px-4 py-3 rounded-2xl flex items-center justify-between gap-4">
+    <div class="logo-area flex items-center gap-3">
+      <div
+        class="w-10 h-10 rounded-xl bg-amber-400 text-slate-950 font-bold flex items-center justify-center text-lg shadow-md shrink-0">
+        P
+      </div>
+      <div>
+        <h1 class="text-lg sm:text-xl font-bold tracking-tight leading-tight">
+          SmartPark <span>IoT</span>
+        </h1>
+        <p id="modeBadge" class="text-sm font-medium mt-0.5">Estacionamento inteligente</p>
+      </div>
     </div>
 
-    <div class="user-area">
-      <p id="userName"></p>
-      <button id="btnLogin" type="button">Entrar</button>
+    <div class="user-area flex items-center gap-3">
+      <p id="userName" class="text-sm font-semibold"></p>
+      <button id="btnLogin" type="button"
+        class="px-4 py-2 rounded-xl text-sm sm:text-base font-bold transition cursor-pointer">
+        Entrar
+      </button>
     </div>
   </header>
 
-  <main>
-    <aside>
-      <!-- ============ MENU ============ -->
-      <div class="menu-actions">
+  <!-- ============ PAINEL LATERAL FLUTUANTE ============ -->
+  <main
+    class="pointer-events-none fixed inset-0 z-20 flex flex-col justify-end md:justify-start md:flex-row p-3 md:p-4 pt-24 md:pt-4">
+    <aside
+      class="glass-panel pointer-events-auto w-full md:w-[430px] lg:w-[460px] max-h-[64vh] md:max-h-[calc(100vh-2rem)] rounded-3xl flex flex-col overflow-hidden shadow-2xl">
+
+      <!-- NAVEGAÇÃO EM ABAS -->
+      <div class="menu-actions p-3 border-b border-slate-900/10 sticky top-0 z-10 backdrop-blur-md bg-white/50">
         <nav aria-label="Seções">
-          <ul>
+          <ul class="grid grid-cols-3 gap-1.5 bg-slate-900/10 p-1 rounded-2xl">
             <li id="li-reservar">
-              <button type="button" id="tab-reservar" aria-controls="reservar" aria-current="true">Reservar</button>
+              <button type="button" id="tab-reservar" aria-controls="reservar" aria-current="true"
+                class="w-full py-2.5 px-2 text-sm font-semibold rounded-xl transition text-slate-700 hover:text-slate-950 cursor-pointer">
+                Reservar
+              </button>
             </li>
             <li>
-              <button type="button" id="tab-minhas-reservas" aria-controls="minhas-reservas">Minhas reservas</button>
+              <button type="button" id="tab-minhas-reservas" aria-controls="minhas-reservas"
+                class="w-full py-2.5 px-2 text-sm font-semibold rounded-xl transition text-slate-700 hover:text-slate-950 cursor-pointer">
+                Minhas reservas
+              </button>
             </li>
             <li>
-              <button type="button" id="tab-operador" aria-controls="operador">Operador</button>
+              <button type="button" id="tab-operador" aria-controls="operador"
+                class="w-full py-2.5 px-2 text-sm font-semibold rounded-xl transition text-slate-700 hover:text-slate-950 cursor-pointer">
+                Operador
+              </button>
             </li>
           </ul>
         </nav>
       </div>
 
-        <!-- ============ RESERVAR (RF02, RF03, RF04, RF05) ============ -->
-        <section id="reservar" class="menu-content">
-          <h2>Reserve sua vaga</h2>
-          <p>Escolha um estacionamento no mapa e informe o período previsto.</p>
+      <!-- CONTEÚDO ROLÁVEL DO PAINEL -->
+      <div class="overflow-y-auto flex-1">
 
-          <label for="lotFilter">Buscar local</label><input id="lotFilter" type="search" placeholder="Nome ou endereço"><label for="lotSelect">Estacionamento</label><select id="lotSelect"><option value="">Selecione um local</option></select>
-          <div id="lotCard">
-            <p>Nenhum estacionamento selecionado.</p>
+        <!-- ============ RESERVAR ============ -->
+        <section id="reservar" class="menu-content p-5 space-y-4">
+          <div>
+            <h2 class="text-2xl font-bold text-slate-900">Reserve sua vaga</h2>
+            <p class="text-sm text-slate-600 mt-1">Toque em um marcador no mapa ou busque abaixo.</p>
           </div>
 
-          <form id="formReserva" novalidate>
-            <fieldset>
-              <legend>Período</legend>
-
-              <label for="arrival">Chegada prevista</label>
-              <input type="datetime-local" id="arrival" name="arrival" required>
-
-              <label for="departure">Saída prevista</label>
-              <input type="datetime-local" id="departure" name="departure" required>
-            </fieldset>
-
-            <div id="summary" aria-live="polite">
-              <p>Valor estimado: <output id="priceEstimate">—</output></p>
-              <p>Vagas disponíveis: <output id="spacesAvailable">—</output></p>
+          <div class="space-y-3">
+            <div>
+              <label for="lotFilter"
+                class="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1.5">Buscar local</label>
+              <input id="lotFilter" type="search" placeholder="Nome ou endereço..."
+                class="glass-input w-full px-4 py-2.5 rounded-xl text-base focus:outline-none focus:ring-2 focus:ring-sinal transition">
             </div>
 
-            <button id="btnPagar" type="submit" disabled>Reservar e pagar</button>
-            <div id="msgReserva" role="status"></div>
+            <div>
+              <label for="lotSelect"
+                class="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1.5">Estacionamento</label>
+              <select id="lotSelect"
+                class="glass-input w-full px-4 py-2.5 rounded-xl text-base focus:outline-none focus:ring-2 focus:ring-sinal transition">
+                <option value="">Selecione um local</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- Card do Estacionamento Selecionado -->
+          <div id="lotCard"
+            class="p-4 rounded-2xl bg-white/75 border border-white/90 text-base text-slate-800 shadow-sm">
+            <p class="text-slate-500 text-sm italic">Nenhum estacionamento selecionado.</p>
+          </div>
+
+          <!-- Formulário de Reserva -->
+          <form id="formReserva" novalidate class="space-y-4">
+            <fieldset class="p-4 rounded-2xl border border-slate-900/10 bg-white/50 space-y-3">
+              <legend class="px-2 text-xs font-bold uppercase tracking-wider text-slate-600">Período</legend>
+
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label for="arrival" class="block text-sm font-medium text-slate-700 mb-1">Chegada</label>
+                  <input type="datetime-local" id="arrival" name="arrival" required
+                    class="glass-input w-full px-3 py-2.5 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-sinal">
+                </div>
+
+                <div>
+                  <label for="departure" class="block text-sm font-medium text-slate-700 mb-1">Saída</label>
+                  <input type="datetime-local" id="departure" name="departure" required
+                    class="glass-input w-full px-3 py-2.5 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-sinal">
+                </div>
+              </div>
+            </fieldset>
+
+            <!-- Resumo estilo Ticket -->
+            <div id="summary" aria-live="polite"
+              class="p-4 rounded-2xl bg-asfalto text-white flex items-center justify-between shadow-lg border border-white/10">
+              <div>
+                <p class="text-xs text-slate-300">Valor estimado</p>
+                <p class="text-xl font-bold text-sinal mt-0.5"><output id="priceEstimate">—</output></p>
+              </div>
+              <div class="text-right">
+                <p class="text-xs text-slate-300">Vagas livres</p>
+                <p class="text-xl font-bold text-emerald-400 mt-0.5"><output id="spacesAvailable">—</output></p>
+              </div>
+            </div>
+
+            <button id="btnPagar" type="submit" disabled
+              class="w-full py-3.5 px-4 rounded-2xl bg-sinal hover:bg-sinalHover text-asfalto font-bold text-base shadow-lg shadow-amber-500/20 transition disabled:opacity-45 disabled:cursor-not-allowed cursor-pointer">
+              Reservar e pagar
+            </button>
+
+            <div id="msgReserva" role="status" class="text-sm font-medium text-slate-800"></div>
           </form>
 
-          <p>O valor é calculado pelo servidor. A reserva só é confirmada depois que o pagamento for verificado.</p>
+          <p class="text-xs text-slate-600 leading-relaxed">
+            O valor é calculado pelo servidor. A reserva só é confirmada depois que o pagamento for verificado.
+          </p>
         </section>
 
-        <!-- ============ MINHAS RESERVAS (RF06, RF09) ============ -->
-        <section id="minhas-reservas" class="menu-content hidden">
-          <h2>Minhas reservas</h2>
-          <p>Acompanhe o status e receba o ticket pelo Telegram.</p>
+        <!-- ============ MINHAS RESERVAS ============ -->
+        <section id="minhas-reservas" class="menu-content hidden p-5 space-y-4">
+          <div>
+            <h2 class="text-2xl font-bold text-slate-900">Minhas reservas</h2>
+            <p class="text-sm text-slate-600 mt-1">Acompanhe o status e receba o ticket pelo Telegram.</p>
+          </div>
 
-          <div id="msgRetorno" role="status"></div>
+          <div id="msgRetorno" role="status" class="text-sm"></div>
 
-          <button id="btnTelegram" type="button">Vincular Telegram</button>
-          <div id="msgTelegram" role="status"></div>
+          <button id="btnTelegram" type="button"
+            class="w-full py-3 px-4 rounded-2xl bg-sky-500 hover:bg-sky-600 text-white font-semibold text-base shadow-md transition cursor-pointer">
+            Vincular Telegram
+          </button>
+          <div id="msgTelegram" role="status" class="text-sm"></div>
 
-          <h3>Histórico</h3>
-          <div id="listaReservas">
-            <p>Entre para consultar suas reservas.</p>
+          <h3 class="text-xs font-bold uppercase tracking-wider text-slate-600 pt-1">Histórico</h3>
+          <div id="listaReservas" class="space-y-3 text-sm">
+            <p class="text-slate-600 text-sm">Entre para consultar suas reservas.</p>
           </div>
         </section>
 
-        <!-- ============ OPERADOR (RF10) ============ -->
-        <section id="operador" class="menu-content hidden">
-          <h2>Painel do operador</h2>
+        <!-- ============ OPERADOR ============ -->
+        <section id="operador" class="menu-content hidden p-5 space-y-4">
+          <h2 class="text-2xl font-bold text-slate-900">Painel do operador</h2>
 
-          <div id="adminLocked">
+          <div id="adminLocked" class="p-4 rounded-2xl bg-amber-100/90 border border-amber-300 text-amber-950 text-sm">
             <p>Acesso restrito. Entre com uma conta de operador.</p>
           </div>
 
-          <div id="adminContent" class="hidden">
-            <h3>Ocupação</h3>
-            <div id="adminOcupacao">
-              <p>Nome do estacionamento — <meter min="0" max="100" value="0">0%</meter> 0/0 vagas ocupadas</p>
+          <div id="adminContent" class="hidden space-y-5">
+            <div>
+              <h3 class="text-xs font-bold uppercase tracking-wider text-slate-600 mb-2">Ocupação</h3>
+              <div id="adminOcupacao" class="space-y-2 text-sm">
+                <p>Nome do estacionamento — <meter min="0" max="100" value="0">0%</meter> 0/0 vagas ocupadas</p>
+              </div>
             </div>
 
-            <h3>Reservas</h3>
-            <div id="adminReservas">
-              <table>
-                <thead>
-                  <tr>
-                    <th scope="col">Reserva</th>
-                    <th scope="col">Local</th>
-                    <th scope="col">Chegada</th>
-                    <th scope="col">Status</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr>
-                    <td>SP-0000</td>
-                    <td>—</td>
-                    <td>—</td>
-                    <td>—</td>
-                  </tr>
-                </tbody>
-              </table>
+            <div>
+              <h3 class="text-xs font-bold uppercase tracking-wider text-slate-600 mb-2">Reservas</h3>
+              <div id="adminReservas" class="overflow-x-auto rounded-2xl border border-slate-900/10 bg-white/70">
+                <table class="w-full text-left text-sm">
+                  <thead class="bg-slate-900/5 text-slate-700 border-b border-slate-900/10">
+                    <tr>
+                      <th scope="col" class="p-2.5">Reserva</th>
+                      <th scope="col" class="p-2.5">Local</th>
+                      <th scope="col" class="p-2.5">Chegada</th>
+                      <th scope="col" class="p-2.5">Status</th>
+                    </tr>
+                  </thead>
+                  <tbody class="divide-y divide-slate-900/10">
+                    <tr>
+                      <td class="p-2.5 font-mono">SP-0000</td>
+                      <td class="p-2.5">—</td>
+                      <td class="p-2.5">—</td>
+                      <td class="p-2.5">—</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
             </div>
 
-            <button type="button" id="btnRetry">Processar notificações pendentes</button><p id="msgRetry" role="status"></p><h3>Alertas</h3>
-            <div id="adminAlertas">
-              <p>Nenhum alerta.</p>
+            <div>
+              <button type="button" id="btnRetry"
+                class="w-full py-2.5 px-3 rounded-xl bg-asfalto hover:bg-slate-800 text-white text-sm font-semibold transition cursor-pointer">
+                Processar notificações pendentes
+              </button>
+              <p id="msgRetry" role="status" class="text-sm mt-1"></p>
             </div>
 
-            <h3>Cadastrar estacionamento</h3>
-            <form id="formLot" novalidate>
-              <label for="lotName">Nome</label>
-              <input id="lotName" name="name" maxlength="80" required>
+            <div>
+              <h3 class="text-xs font-bold uppercase tracking-wider text-slate-600 mb-2">Alertas</h3>
+              <div id="adminAlertas" class="p-3.5 rounded-2xl bg-white/70 border border-white/90 text-sm">
+                <p class="text-slate-600">Nenhum alerta.</p>
+              </div>
+            </div>
 
-              <label for="lotAddress">Endereço aproximado</label>
-              <input id="lotAddress" name="address" maxlength="120" required>
+            <form id="formLot" novalidate class="p-4 rounded-2xl bg-white/65 border border-white/90 space-y-3">
+              <h3 class="text-base font-bold text-slate-900">Cadastrar estacionamento</h3>
 
-              <label for="lotLat">Latitude</label>
-              <input id="lotLat" name="latitude" type="number" step="any" min="-90" max="90" required>
+              <div>
+                <label for="lotName" class="block text-sm font-medium text-slate-700 mb-1">Nome</label>
+                <input id="lotName" name="name" maxlength="80" required
+                  class="glass-input w-full px-3 py-2 rounded-xl text-sm">
+              </div>
 
-              <label for="lotLng">Longitude</label>
-              <input id="lotLng" name="longitude" type="number" step="any" min="-180" max="180" required>
+              <div>
+                <label for="lotAddress" class="block text-sm font-medium text-slate-700 mb-1">Endereço
+                  aproximado</label>
+                <input id="lotAddress" name="address" maxlength="120" required
+                  class="glass-input w-full px-3 py-2 rounded-xl text-sm">
+              </div>
 
-              <label for="lotRate">Tarifa por hora (R$)</label>
-              <input id="lotRate" name="hourly_rate" type="number" step="0.01" min="0.01" required>
+              <div class="grid grid-cols-2 gap-2.5">
+                <div>
+                  <label for="lotLat" class="block text-sm font-medium text-slate-700 mb-1">Latitude</label>
+                  <input id="lotLat" name="latitude" type="number" step="any" min="-90" max="90" required
+                    class="glass-input w-full px-3 py-2 rounded-xl text-sm">
+                </div>
+                <div>
+                  <label for="lotLng" class="block text-sm font-medium text-slate-700 mb-1">Longitude</label>
+                  <input id="lotLng" name="longitude" type="number" step="any" min="-180" max="180" required
+                    class="glass-input w-full px-3 py-2 rounded-xl text-sm">
+                </div>
+              </div>
 
-              <label for="lotSpaces">Quantidade de vagas</label><input id="lotSpaces" name="spaces" type="number" min="1" max="50" value="1" required><button type="submit">Cadastrar</button>
-              <div id="msgLot" role="status"></div>
+              <div class="grid grid-cols-2 gap-2.5">
+                <div>
+                  <label for="lotRate" class="block text-sm font-medium text-slate-700 mb-1">Tarifa/hora (R$)</label>
+                  <input id="lotRate" name="hourly_rate" type="number" step="0.01" min="0.01" required
+                    class="glass-input w-full px-3 py-2 rounded-xl text-sm">
+                </div>
+                <div>
+                  <label for="lotSpaces" class="block text-sm font-medium text-slate-700 mb-1">Qtd. vagas</label>
+                  <input id="lotSpaces" name="spaces" type="number" min="1" max="50" value="1" required
+                    class="glass-input w-full px-3 py-2 rounded-xl text-sm">
+                </div>
+              </div>
+
+              <button type="submit"
+                class="w-full py-3 px-4 rounded-xl bg-sinal hover:bg-sinalHover text-asfalto font-bold text-sm transition cursor-pointer">
+                Cadastrar
+              </button>
+              <div id="msgLot" role="status" class="text-sm"></div>
             </form>
           </div>
         </section>
-      
+      </div>
+
+      <!-- RODAPÉ INTEGRADO NA BASE DO VIDRO -->
+      <footer class="px-5 py-2.5 border-t border-slate-900/10 bg-white/40 text-xs text-slate-600">
+        <p>SmartPark IoT — protótipo educacional. Não use para controlar uma cancela real.</p>
+      </footer>
     </aside>
-
-    <div class="container-map">
-      <!-- ============ MAPA (RF01) ============ -->
-      <section id="mapa" aria-label="Mapa dos estacionamentos">
-        <div id="map"></div>
-      </section>
-    </div>
-
   </main>
 
   <!-- ============ LOGIN ============ -->
-  <dialog id="dlgLogin">
-    <form method="dialog" id="formLogin">
-      <h2>Entrar</h2>
+  <dialog id="dlgLogin"
+    class="glass-panel rounded-3xl p-6 shadow-2xl w-[min(92%,420px)] backdrop:bg-slate-950/50 backdrop:backdrop-blur-sm">
+    <form method="dialog" id="formLogin" class="space-y-4">
+      <h2 class="text-xl font-bold text-slate-900">Entrar no SmartPark</h2>
 
-      <label for="loginEmail">E-mail</label>
-      <input id="loginEmail" name="email" type="email" autocomplete="username" required>
+      <div>
+        <label for="loginEmail" class="block text-sm font-medium text-slate-700 mb-1">E-mail</label>
+        <input id="loginEmail" name="email" type="email" autocomplete="username" required
+          class="glass-input w-full px-3.5 py-2.5 rounded-xl text-base focus:outline-none focus:ring-2 focus:ring-sinal">
+      </div>
 
-      <label for="loginPass">Senha</label>
-      <input id="loginPass" name="password" type="password" autocomplete="current-password" required>
+      <div>
+        <label for="loginPass" class="block text-sm font-medium text-slate-700 mb-1">Senha</label>
+        <input id="loginPass" name="password" type="password" autocomplete="current-password" required
+          class="glass-input w-full px-3.5 py-2.5 rounded-xl text-base focus:outline-none focus:ring-2 focus:ring-sinal">
+      </div>
 
-      <label for="demoToken" id="demoLabel" class="hidden">Token de demonstração local</label><input id="demoToken" type="password" class="hidden" autocomplete="off"><div id="msgLogin" role="status"></div>
+      <div>
+        <label for="demoToken" id="demoLabel" class="hidden block text-sm font-medium text-slate-700 mb-1">Token de
+          demonstração local</label>
+        <input id="demoToken" type="password" class="hidden glass-input w-full px-3.5 py-2.5 rounded-xl text-base"
+          autocomplete="off">
+      </div>
 
-      <button type="submit">Entrar</button>
-      <button type="button" id="loginCancel">Cancelar</button>
+      <div id="msgLogin" role="status" class="text-sm"></div>
+
+      <div class="flex gap-2.5 pt-2">
+        <button type="submit"
+          class="flex-1 py-2.5 px-4 rounded-xl bg-sinal hover:bg-sinalHover text-asfalto font-bold text-base cursor-pointer">
+          Entrar
+        </button>
+        <button type="button" id="loginCancel"
+          class="px-4 py-2.5 rounded-xl bg-white/75 hover:bg-white text-slate-800 font-semibold text-base cursor-pointer">
+          Cancelar
+        </button>
+      </div>
     </form>
   </dialog>
 
-  <footer>
-    <p>SmartPark IoT — protótipo educacional. Não use para controlar uma cancela real.</p>
-  </footer>
-
 </body>
+
 </html>

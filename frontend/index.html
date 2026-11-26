@@ -1,10 +1,16 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
+
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
 
   <title>SmartPark IoT — Reserve sua vaga</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap"
+    rel="stylesheet">
+
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 
@@ -12,13 +18,14 @@
   <script type="module" src="/static/scripts/map.js" defer></script>
 
 </head>
-<body>
+
+<body class="glass-scene">
 
   <!-- ============ CABEÇALHO ============ -->
-  <header>
+  <header class="glass-bar">
     <div class="logo-area">
-        <h1>SmartPark IoT</h1>
-        <p id="modeBadge">Estacionamento inteligente</p>
+      <h1>SmartPark IoT</h1>
+      <p id="modeBadge">Estacionamento inteligente</p>
     </div>
 
     <div class="user-area">
@@ -29,9 +36,9 @@
   </header>
 
   <main>
-    <aside>
+    <aside class="glass-panel">
       <!-- ============ MENU ============ -->
-      <div class="menu-actions">
+      <div class="menu-actions glass-subbar">
         <nav aria-label="Seções">
           <ul>
             <li id="li-reservar">
@@ -47,91 +54,123 @@
         </nav>
       </div>
 
-        <!-- ============ RESERVAR (RF02, RF03, RF04, RF05) ============ -->
-        <section id="reservar" class="menu-content">
-          <h2>Reserve sua vaga</h2>
-          <p>Escolha um estacionamento no mapa e informe o período previsto.</p>
+      <!-- ============ RESERVAR (RF02, RF03, RF04, RF05) ============ -->
+      <section id="reservar" class="menu-content">
+        <h2>Reserve sua vaga</h2>
+        <p>Escolha um estacionamento no mapa e informe o período previsto.</p>
 
-          <label for="lotFilter">Buscar local</label><input id="lotFilter" type="search" placeholder="Nome ou endereço"><label for="lotSelect">Estacionamento</label><select id="lotSelect"><option value="">Selecione um local</option></select>
-          <div id="lotCard">
-            <p>Nenhum estacionamento selecionado.</p>
+        <label for="lotFilter">Buscar local</label><input id="lotFilter" type="search"
+          placeholder="Nome ou endereço"><label for="lotSelect">Estacionamento</label><select id="lotSelect">
+          <option value="">Selecione um local</option>
+        </select>
+        <div id="lotCard" class="glass-card">
+          <p>Nenhum estacionamento selecionado.</p>
+        </div>
+
+        <form id="formReserva" novalidate>
+          <fieldset class="glass-fieldset">
+            <legend>Período</legend>
+
+            <label for="arrival">Chegada prevista</label>
+            <input type="datetime-local" id="arrival" name="arrival" required>
+
+            <label for="departure">Saída prevista</label>
+            <input type="datetime-local" id="departure" name="departure" required>
+          </fieldset>
+
+          <div id="summary" class="glass-summary" aria-live="polite">
+            <p>Valor estimado: <output id="priceEstimate">—</output></p>
+            <p>Vagas disponíveis: <output id="spacesAvailable">—</output></p>
           </div>
 
-          <form id="formReserva" novalidate>
-            <fieldset>
-              <legend>Período</legend>
+          <button id="btnPagar" type="submit" disabled>Reservar e pagar</button>
+          <div id="msgReserva" role="status"></div>
+        </form>
 
-              <label for="arrival">Chegada prevista</label>
-              <input type="datetime-local" id="arrival" name="arrival" required>
+        <p>Preço e disponibilidade vêm do sistema; na demonstração DEV, são dados fictícios. Uma reserva real só é
+          confirmada depois da verificação do pagamento.</p>
+      </section>
 
-              <label for="departure">Saída prevista</label>
-              <input type="datetime-local" id="departure" name="departure" required>
-            </fieldset>
+      <!-- ============ MINHAS RESERVAS (RF06, RF09) ============ -->
+      <section id="minhas-reservas" class="menu-content hidden">
+        <h2>Minhas reservas</h2>
+        <p>Acompanhe o status e receba o ticket pelo Telegram.</p>
 
-            <div id="summary" aria-live="polite">
-              <p>Valor estimado: <output id="priceEstimate">—</output></p>
-              <p>Vagas disponíveis: <output id="spacesAvailable">—</output></p>
-            </div>
+        <div id="msgRetorno" role="status"></div>
 
-            <button id="btnPagar" type="submit" disabled>Reservar e pagar</button>
-            <div id="msgReserva" role="status"></div>
-          </form>
-
-          <p>Preço e disponibilidade vêm do sistema; na demonstração DEV, são dados fictícios. Uma reserva real só é confirmada depois da verificação do pagamento.</p>
+        <button id="btnTelegram" type="button">Vincular Telegram</button>
+        <div id="msgTelegram" role="status"></div>
+        <section id="demoMessages" class="demo-messages glass-card hidden" aria-labelledby="demoMessagesTitle">
+          <h3 id="demoMessagesTitle">Mensagens do Telegram simulado</h3>
+          <div id="demoMessageList" aria-live="polite">
+            <p>Nenhuma mensagem ainda.</p>
+          </div>
         </section>
 
-        <!-- ============ MINHAS RESERVAS (RF06, RF09) ============ -->
-        <section id="minhas-reservas" class="menu-content hidden">
-          <h2>Minhas reservas</h2>
-          <p>Acompanhe o status e receba o ticket pelo Telegram.</p>
+        <h3>Histórico</h3>
+        <div id="listaReservas">
+          <p>Entre para consultar suas reservas.</p>
+        </div>
+      </section>
 
-          <div id="msgRetorno" role="status"></div>
+      <!-- ============ OPERADOR (RF10) ============ -->
+      <section id="operador" class="menu-content hidden">
+        <div class="admin-heading">
+          <div>
+            <p class="eyebrow">CENTRAL DE OPERAÇÕES</p>
+            <h2>Painel do operador</h2>
+            <p>Ocupação, reservas e alertas operacionais.</p>
+          </div>
+        </div>
 
-          <button id="btnTelegram" type="button">Vincular Telegram</button>
-          <div id="msgTelegram" role="status"></div>
-          <section id="demoMessages" class="demo-messages hidden" aria-labelledby="demoMessagesTitle">
-            <h3 id="demoMessagesTitle">Mensagens do Telegram simulado</h3>
-            <div id="demoMessageList" aria-live="polite"><p>Nenhuma mensagem ainda.</p></div>
+        <div id="adminLocked" class="glass-card">
+          <p>Acesso restrito. Entre com uma conta de operador.</p>
+        </div>
+
+        <div id="adminContent" class="hidden">
+          <div class="admin-toolbar">
+            <p class="admin-sync" id="adminSyncStatus" role="status">Atualização automática a cada minuto enquanto esta
+              aba estiver visível.</p>
+            <button type="button" id="btnRefreshAdmin">Atualizar painel</button>
+          </div>
+          <section class="admin-section glass-card" aria-labelledby="occupancyTitle">
+            <div class="section-heading">
+              <div>
+                <h3 id="occupancyTitle">Ocupação por estacionamento</h3>
+                <p>Disponibilidade atual conciliada com os registros do sistema.</p>
+              </div>
+            </div>
+            <div id="adminOcupacao" class="occupancy-grid">
+              <p>Carregando ocupação…</p>
+            </div>
           </section>
 
-          <h3>Histórico</h3>
-          <div id="listaReservas">
-            <p>Entre para consultar suas reservas.</p>
-          </div>
-        </section>
-
-        <!-- ============ OPERADOR (RF10) ============ -->
-        <section id="operador" class="menu-content hidden">
-          <div class="admin-heading">
-            <div><p class="eyebrow">CENTRAL DE OPERAÇÕES</p><h2>Painel do operador</h2><p>Ocupação, reservas e alertas operacionais.</p></div>
-          </div>
-
-          <div id="adminLocked">
-            <p>Acesso restrito. Entre com uma conta de operador.</p>
-          </div>
-
-          <div id="adminContent" class="hidden">
-            <div class="admin-toolbar">
-              <p class="admin-sync" id="adminSyncStatus" role="status">Atualização automática a cada minuto enquanto esta aba estiver visível.</p>
-              <button type="button" id="btnRefreshAdmin">Atualizar painel</button>
+          <section class="admin-section glass-card" aria-labelledby="reservationsTitle">
+            <div class="section-heading">
+              <div>
+                <h3 id="reservationsTitle">Reservas</h3>
+                <p>Os estados de pagamento e acesso são definidos pelo servidor.</p>
+              </div>
             </div>
-            <section class="admin-section" aria-labelledby="occupancyTitle">
-              <div class="section-heading"><div><h3 id="occupancyTitle">Ocupação por estacionamento</h3><p>Disponibilidade atual conciliada com os registros do sistema.</p></div></div>
-              <div id="adminOcupacao" class="occupancy-grid"><p>Carregando ocupação…</p></div>
-            </section>
+            <div id="adminReservas" class="reservation-list" aria-live="polite">
+              <p>Carregando reservas…</p>
+            </div>
+          </section>
 
-            <section class="admin-section" aria-labelledby="reservationsTitle">
-              <div class="section-heading"><div><h3 id="reservationsTitle">Reservas</h3><p>Os estados de pagamento e acesso são definidos pelo servidor.</p></div></div>
-              <div id="adminReservas" class="reservation-list" aria-live="polite"><p>Carregando reservas…</p></div>
-            </section>
+          <section class="admin-section glass-card" aria-labelledby="alertsTitle">
+            <div class="section-heading">
+              <div>
+                <h3 id="alertsTitle">Alertas operacionais</h3>
+                <p>Falhas e notificações que precisam de acompanhamento.</p>
+              </div>
+            </div>
+            <div id="adminAlertas" class="alert-list">
+              <p>Nenhum alerta.</p>
+            </div>
+          </section>
+        </div>
+      </section>
 
-            <section class="admin-section" aria-labelledby="alertsTitle">
-              <div class="section-heading"><div><h3 id="alertsTitle">Alertas operacionais</h3><p>Falhas e notificações que precisam de acompanhamento.</p></div></div>
-              <div id="adminAlertas" class="alert-list"><p>Nenhum alerta.</p></div>
-            </section>
-          </div>
-        </section>
-      
     </aside>
 
     <div class="container-map">
@@ -144,7 +183,7 @@
   </main>
 
   <!-- ============ LOGIN ============ -->
-  <dialog id="dlgLogin">
+  <dialog id="dlgLogin" class="glass-dialog">
     <form method="dialog" id="formLogin">
       <h2>Entrar</h2>
 
@@ -155,7 +194,8 @@
         <label for="loginPass">Senha</label>
         <input id="loginPass" name="password" type="password" autocomplete="current-password" required>
 
-        <label for="demoToken" id="demoLabel" class="hidden">Token de demonstração local</label><input id="demoToken" type="password" class="hidden" autocomplete="off">
+        <label for="demoToken" id="demoLabel" class="hidden">Token de demonstração local</label><input id="demoToken"
+          type="password" class="hidden" autocomplete="off">
       </div>
       <div id="msgLogin" role="status"></div>
 
@@ -164,7 +204,7 @@
     </form>
   </dialog>
 
-  <dialog id="dlgDemo">
+  <dialog id="dlgDemo" class="glass-dialog">
     <form method="dialog">
       <h2>Demonstração (DEV)</h2>
       <p>Escolha um perfil fictício. Os dados ficam apenas nesta página e nenhuma integração real é acionada.</p>
@@ -174,7 +214,7 @@
     </form>
   </dialog>
 
-  <dialog id="dlgDemoPayment">
+  <dialog id="dlgDemoPayment" class="glass-dialog">
     <form method="dialog">
       <h2>Pagamento de demonstração</h2>
       <p id="demoPaymentSummary"></p>
@@ -185,9 +225,10 @@
     </form>
   </dialog>
 
-  <footer>
+  <footer class="glass-footer">
     <p>SmartPark IoT — protótipo educacional. Não use para controlar uma cancela real.</p>
   </footer>
 
 </body>
+
 </html>

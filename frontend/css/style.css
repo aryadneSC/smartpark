@@ -119,25 +119,25 @@ meter {
     border-radius: 999px;
 }
 
-/* Posiciona o controle de zoom do Leaflet no canto inferior direito do painel */
+/* Zoom do Leaflet no canto inferior direito do painel (aside) */
 .leaflet-top.leaflet-left {
     position: fixed !important;
     top: auto !important;
-    left: auto !important;
-    bottom: 3.6rem !important;
-    /* Largura do painel (430px) + margem (1rem) - respiro interno (1rem) */
-    right: calc(100vw - 430px - 1rem + 0.75rem) !important;
+    bottom: 3.4rem !important;
+    left: calc(1rem + 430px - 68px - 0.75rem) !important;
+    right: auto !important;
     z-index: 40 !important;
 }
 
 @media (min-width: 1024px) {
     .leaflet-top.leaflet-left {
-        right: calc(100vw - 460px - 1rem + 0.75rem) !important;
+        left: calc(1rem + 460px - 68px - 0.75rem) !important;
     }
 }
 
 @media (max-width: 767px) {
     .leaflet-top.leaflet-left {
+        left: auto !important;
         right: 1.5rem !important;
         bottom: calc(64vh + 1.25rem) !important;
     }
@@ -146,10 +146,9 @@ meter {
 .leaflet-control-zoom {
     display: flex !important;
     flex-direction: row !important;
-    border: 1px solid rgba(22, 27, 38, 0.2) !important;
-    background: rgba(255, 255, 255, 0.94) !important;
-    backdrop-filter: blur(12px) !important;
-    box-shadow: 0 8px 20px rgba(15, 23, 42, 0.22) !important;
+    border: 1px solid rgba(22, 27, 38, 0.25) !important;
+    background: #ffffff !important;
+    box-shadow: 0 8px 20px rgba(15, 23, 42, 0.25) !important;
     border-radius: 0.75rem !important;
     overflow: hidden;
     margin: 0 !important;
@@ -159,11 +158,11 @@ meter {
     width: 34px !important;
     height: 34px !important;
     line-height: 34px !important;
-    background: transparent !important;
+    background: #ffffff !important;
     color: #161B26 !important;
     font-weight: 700 !important;
     border-bottom: none !important;
-    border-right: 1px solid rgba(15, 23, 42, 0.12) !important;
+    border-right: 1px solid rgba(15, 23, 42, 0.15) !important;
 }
 
 .leaflet-control-zoom a:last-child {

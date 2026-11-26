@@ -37,7 +37,7 @@ class MercadoPago:
             'items': [{'id': reservation_id, 'title': 'SmartPark — reserva de teste',
                        'quantity': 1, 'currency_id': 'BRL',
                        'unit_price': reservation['price_estimate']}],
-            'notification_url': base + '/webhooks/mercadopago',
+            'notification_url': base + '/webhooks/mercadopago?source_news=webhooks',
             'back_urls': {s: base + '/?payment_return=' + s for s in ('success', 'failure', 'pending')},
             'auto_return': 'approved',
             'expires': True, 'expiration_date_to': reservation['expires_at'],

@@ -23,64 +23,33 @@ class MemoryStore:
 class FirestoreStore:
     def __init__(self):
         import firebase_admin
-        from firebase_admin import firestore, credentials
-
+        from firebase_admin import firestore
         try:
             firebase_admin.get_app()
         except ValueError:
             project = os.getenv('FIREBASE_PROJECT_ID')
-            credentials_json = os.getenv('FIREBASE_CREDENTIALS')
-
-            if credentials_json:
-                import json
-                certificate = credentials.Certificate(
-                    json.loads(credentials_json)
-                )
-                firebase_admin.initialize_app(
-                    certificate,
-                    options={'projectId': project} if project else None
-                )
-            else:
-                raise RuntimeError(
-                    'FIREBASE_CREDENTIALS não configurada no ambiente.'
-                )
-
+            firebase_admin.initialize_app(options={'projectId': project} if project else None)
         self.db = firestore.client()
         self.firestore = firestore
 
     def run(self, operation):
+        # Todas as mutações passam por este documento: serializa inclusive vagas vazias.
+        # Adequado somente ao volume pequeno da atividade (não escalar desta maneira).
         @self.firestore.transactional
         def transact(tx):
             guard = self.db.collection('_locks').document('smartpark')
             version = guard.get(transaction=tx).to_dict() or {}
-            state = {
-                name: {
-                    d.id: d.to_dict()
-                    for d in self.db.collection(name).stream(
-                        transaction=tx, timeout=10
-                    )
-                }
-                for name in COLLECTIONS
-            }
+            state = {name: {d.id: d.to_dict() for d in
+                     self.db.collection(name).stream(transaction=tx, timeout=10)}
+                     for name in COLLECTIONS}
             original = deepcopy(state)
             result = operation(state)
-
-            changes = [
-                (name, key, value)
-                for name in COLLECTIONS
-                for key, value in state[name].items()
-                if original[name].get(key) != value
-            ]
-
+            changes = [(name, key, value) for name in COLLECTIONS
+                       for key, value in state[name].items()
+                       if original[name].get(key) != value]
             if changes:
                 for name, key, value in changes:
                     tx.set(self.db.collection(name).document(key), value)
-
-                tx.set(
-                    guard,
-                    {'revision': version.get('revision', 0) + 1}
-                )
-
+                tx.set(guard, {'revision': version.get('revision', 0) + 1})
             return result
-          
         return transact(self.db.transaction(max_attempts=5))

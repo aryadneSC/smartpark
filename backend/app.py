@@ -105,10 +105,7 @@ def demo_seed(state):
 
 def create_app(store=None, payment_provider=None, telegram_provider=None, auth_verifier=None):
     load_dotenv(ROOT / '.env')
-    # No Vercel, os arquivos públicos são servidos pela CDN a partir de /public.
-    # Localmente, o Flask mantém /static para facilitar o desenvolvimento.
-    static_folder = None if os.getenv('VERCEL') else str(ROOT / 'frontend')
-    app = Flask(__name__, static_folder=static_folder, static_url_path='/static')
+    app = Flask(__name__, static_folder=str(ROOT / 'frontend'), static_url_path='/static')
     app.config['MAX_CONTENT_LENGTH'] = 16384
     CORS(app, origins=os.getenv('FRONTEND_ORIGIN', 'http://127.0.0.1:5000').split(','))
     demo = os.getenv('SMARTPARK_MODE', 'firestore') == 'demo'
@@ -331,26 +328,47 @@ def create_app(store=None, payment_provider=None, telegram_provider=None, auth_v
 
     @app.post('/webhooks/mercadopago')
     def payment_webhook():
-        data = body()
+        ### Inicio da alteração
+
+        data = request.get_json(silent=True) or {}
         payment_id = request.args.get('data.id', '')
-        req_id = request.headers.get('x-request-id', '')
-        signature = dict(part.strip().split('=', 1) for part in request.headers.get('x-signature', '').split(',') if '=' in part)
-        ts, supplied = signature.get('ts', ''), signature.get('v1', '')
-        secret = os.getenv('MERCADOPAGO_WEBHOOK_SECRET', '')
-        try:
-            timestamp = int(ts)
-            fresh = abs(time.time() - (timestamp / 1000 if timestamp > 10**12 else timestamp)) <= 300
-        except ValueError:
-            fresh = False
-        manifest = f'id:{payment_id.lower()};request-id:{req_id};ts:{ts};'
-        expected = hmac.new(secret.encode(), manifest.encode(), hashlib.sha256).hexdigest()
-        if not secret or not payment_id or not req_id or not fresh or not hmac.compare_digest(expected, supplied):
-            raise RuleError('Assinatura inválida.', 401)
-        if data.get('type') != 'payment':
-            return jsonify({'ignored': True})
-        payment = mp.payment(payment_id)
-        if str(payment.get('id')) != payment_id or payment.get('live_mode') is not False:
-            raise RuleError('Somente pagamentos de teste verificados.', 400)
+        legacy = not payment_id and request.args.get('topic')
+        if legacy:
+            if request.args.get('topic') != 'payment':
+                return jsonify({'ignored': True})
+            payment_id = request.args.get('id', '')
+            if not re.fullmatch(r'\d{1,20}', payment_id):
+                raise RuleError('Identificador inválido.', 400)
+        else:
+            req_id = request.headers.get('x-request-id', '')
+            signature = dict(part.strip().split('=', 1) for part in request.headers.get('x-signature', '').split(',') if '=' in part)
+            ts, supplied = signature.get('ts', ''), signature.get('v1', '')
+            secret = os.getenv('MERCADOPAGO_WEBHOOK_SECRET', '')
+            try:
+                timestamp = int(ts)
+                fresh = abs(time.time() - (timestamp / 1000 if timestamp > 10**12 else timestamp)) <= 300
+            except ValueError:
+                fresh = False
+            manifest = f'id:{payment_id.lower()};request-id:{req_id};ts:{ts};'
+            expected = hmac.new(secret.encode(), manifest.encode(), hashlib.sha256).hexdigest()
+            if not secret or not payment_id or not req_id or not fresh or not hmac.compare_digest(expected, supplied):
+                raise RuleError('Assinatura inválida.', 401)
+            if data.get('type') != 'payment':
+                return jsonify({'ignored': True})
+        
+        ### Fim alteração
+
+        ### Segunda alteração
+
+            payment = mp.payment(payment_id)
+            if str(payment.get('id')) != payment_id:
+                raise RuleError('Pagamento não corresponde à notificação.', 400)
+            accept_live_flag = os.getenv('MERCADOPAGO_SANDBOX', '0') == '1'
+            if payment.get('live_mode') is not False and not accept_live_flag:
+                raise RuleError('Somente pagamentos de teste verificados.', 400)
+            
+        ### Fim segunda alteração
+
         key = payment.get('external_reference')
         def operation(state):
             r = state['reservations'].get(key)

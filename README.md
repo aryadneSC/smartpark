@@ -39,6 +39,17 @@ Para Firebase: use uma **nova** chave fora da pasta do projeto, configure
 Execute `python scripts/seed.py` uma vez com o servidor parado. Consulte o guia para
 operadores, Mercado Pago de teste, Telegram e certificado HTTPS do ESP32.
 
+### Deploy na Vercel
+
+Em **Settings → Environment Variables**, configure `FIREBASE_SERVICE_ACCOUNT_JSON`
+como segredo de **Production** com o conteúdo completo do JSON de uma conta de
+serviço válida. Configure `FIREBASE_PROJECT_ID` e `FIREBASE_WEB_API_KEY` do mesmo
+projeto Firebase e defina `SMARTPARK_MODE=firestore`. Faça um novo deploy para
+aplicar as variáveis. `GOOGLE_APPLICATION_CREDENTIALS` aponta para um arquivo
+local e deve ser omitida na Vercel ao usar o segredo JSON.
+Se o segredo já estiver cadastrado como `FIREBASE_CREDENTIALS`, o backend
+aceita esse nome quando `FIREBASE_SERVICE_ACCOUNT_JSON` estiver ausente.
+
 Worker de notificações no modo Firestore, em outro terminal com o mesmo ambiente
 (no modo demo, use o botão do operador no mesmo processo):
 
